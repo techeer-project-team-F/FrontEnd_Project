@@ -1,0 +1,40 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build
+dist
+dist-ssr
+
+# TypeScript 빌드 캐시
+*.tsbuildinfo
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS 시스템 파일
+.DS_Store
+Thumbs.db
+
+# Environment (예시 파일은 올려야 하므로 .env.example 제외)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Claude Code
+.omc
