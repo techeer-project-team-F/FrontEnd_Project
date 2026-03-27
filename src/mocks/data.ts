@@ -1,0 +1,201 @@
+import type { Book, Memo, User } from '@/types'
+
+// 유저 Mock 데이터
+export const mockUsers: User[] = [
+  {
+    id: 1,
+    nickname: '독서광',
+    profileImageUrl: 'https://picsum.photos/seed/user1/100/100',
+    followerCount: 120,
+    followingCount: 85,
+  },
+  {
+    id: 2,
+    nickname: '책벌레지니',
+    profileImageUrl: 'https://picsum.photos/seed/user2/100/100',
+    followerCount: 340,
+    followingCount: 210,
+  },
+  {
+    id: 3,
+    nickname: '문학소년',
+    profileImageUrl: 'https://picsum.photos/seed/user3/100/100',
+    followerCount: 95,
+    followingCount: 60,
+  },
+]
+
+// 도서 Mock 데이터
+export const mockBooks: Book[] = [
+  {
+    isbn: '9788937460449',
+    title: '데미안',
+    author: '헤르만 헤세',
+    publisher: '민음사',
+    coverImageUrl: 'https://picsum.photos/seed/demian/200/300',
+    description:
+      '새는 알에서 나오려고 투쟁한다. 알은 세계이다. 태어나려는 자는 하나의 세계를 파괴하지 않으면 안 된다.',
+    pageCount: 248,
+    rating: 4.8,
+    reviewCount: 1200,
+  },
+  {
+    isbn: '9788937460456',
+    title: '위대한 개츠비',
+    author: 'F. 스콧 피츠제럴드',
+    publisher: '문학동네',
+    coverImageUrl: 'https://picsum.photos/seed/gatsby/200/300',
+    description:
+      '우리는 과거 속으로 끊임없이 밀려가면서도, 흐름을 거스르는 배처럼 앞으로 나아간다.',
+    pageCount: 272,
+    rating: 4.5,
+    reviewCount: 850,
+  },
+  {
+    isbn: '9788937460463',
+    title: '호밀밭의 파수꾼',
+    author: 'J.D. 샐린저',
+    publisher: '문학동네',
+    coverImageUrl: 'https://picsum.photos/seed/catcher/200/300',
+    description: '홀든 콜필드의 이야기를 통해 청소년기의 방황과 성장을 그린 소설.',
+    pageCount: 320,
+    rating: 4.6,
+    reviewCount: 920,
+  },
+  {
+    isbn: '9788937460470',
+    title: 'The Midnight Library',
+    author: 'Matt Haig',
+    publisher: 'Canongate Books',
+    coverImageUrl: 'https://picsum.photos/seed/midnight/200/300',
+    description: '인생의 수많은 선택지들에 대해 다시 생각해보게 하는 따뜻한 판타지 소설.',
+    pageCount: 288,
+    rating: 4.8,
+    reviewCount: 1240,
+  },
+  {
+    isbn: '9788937460487',
+    title: '싯다르타',
+    author: '헤르만 헤세',
+    publisher: '문학동네',
+    coverImageUrl: 'https://picsum.photos/seed/siddhartha/200/300',
+    pageCount: 200,
+    rating: 4.5,
+    reviewCount: 850,
+  },
+  {
+    isbn: '9788937460494',
+    title: '수레바퀴 아래서',
+    author: '헤르만 헤세',
+    publisher: '더클래식',
+    coverImageUrl: 'https://picsum.photos/seed/wheel/200/300',
+    pageCount: 280,
+    rating: 4.2,
+    reviewCount: 420,
+  },
+  {
+    isbn: '9788937460500',
+    title: '유리알 유희',
+    author: '헤르만 헤세',
+    publisher: '민음사',
+    coverImageUrl: 'https://picsum.photos/seed/glass/200/300',
+    pageCount: 640,
+    rating: 4.0,
+    reviewCount: 128,
+  },
+]
+
+// 리뷰 Mock 데이터
+export const mockReviews: Memo[] = [
+  {
+    id: 1,
+    content:
+      '내 안의 알을 깨고 나오는 과정이 얼마나 고통스럽고도 숭고한지 다시금 느꼈습니다. 싱클레어의 성장은 우리 모두의 초상화 같네요...',
+    book: mockBooks[0],
+    author: mockUsers[0],
+    likeCount: 24,
+    isLiked: false,
+    createdAt: '2시간 전',
+    rating: 5,
+    readingStatus: 'finished',
+    hasSpoiler: false,
+    commentCount: 5,
+  },
+  {
+    id: 2,
+    content:
+      '이 책의 결말은 정말 충격적이었어요. 개츠비가 결국 그렇게 떠나게 될 줄은 몰랐는데, 데이지의 선택이 너무나도 현실적이면서도 잔인하게 느껴졌습니다. 상류 사회의 위선이...',
+    book: mockBooks[1],
+    author: mockUsers[1],
+    likeCount: 12,
+    isLiked: false,
+    createdAt: '4시간 전',
+    rating: 4,
+    readingStatus: 'reading',
+    hasSpoiler: true,
+    commentCount: 2,
+  },
+  {
+    id: 3,
+    content:
+      '홀든의 냉소 속에 감춰진 순수함이 가슴 아팠습니다. 누구나 한번쯤은 길을 잃고 누군가 자신을 잡아주길 바라는 법이니까요...',
+    book: mockBooks[2],
+    author: mockUsers[2],
+    likeCount: 45,
+    isLiked: false,
+    createdAt: '6시간 전',
+    rating: 5,
+    readingStatus: 'finished',
+    hasSpoiler: false,
+    commentCount: 8,
+  },
+]
+
+// 검색 결과 Mock 데이터
+export const mockSearchResults: Book[] = [mockBooks[0], mockBooks[4], mockBooks[5], mockBooks[6]]
+
+// BookDetail용 리뷰 Mock 데이터
+export const mockBookDetailReviews: Memo[] = [
+  {
+    id: 4,
+    content:
+      '인생의 수많은 선택지들에 대해 다시 생각해보게 된 책이었어요. 문장 하나하나가 위로가 되네요...',
+    book: mockBooks[3],
+    author: { ...mockUsers[0], nickname: '지혜로운숲' },
+    likeCount: 32,
+    isLiked: false,
+    createdAt: '1일 전',
+    rating: 5,
+    readingStatus: 'finished',
+    hasSpoiler: false,
+    commentCount: 3,
+  },
+  {
+    id: 5,
+    content:
+      '결말 부분에서 주인공이 결국 자신의 원래 삶을 선택하는 장면이 정말 감동적이었어요. 도서관 사서와의 대화가 신의 한 수...',
+    book: mockBooks[3],
+    author: { ...mockUsers[1], nickname: '북트래커' },
+    likeCount: 18,
+    isLiked: false,
+    createdAt: '2일 전',
+    rating: 4,
+    readingStatus: 'finished',
+    hasSpoiler: true,
+    commentCount: 1,
+  },
+  {
+    id: 6,
+    content:
+      '우울할 때 읽으면 정말 좋은 책입니다. 판타지적인 설정도 흥미롭고 철학적인 질문들도 좋았습니다.',
+    book: mockBooks[3],
+    author: { ...mockUsers[2], nickname: '새벽감성' },
+    likeCount: 27,
+    isLiked: false,
+    createdAt: '3일 전',
+    rating: 4,
+    readingStatus: 'finished',
+    hasSpoiler: false,
+    commentCount: 5,
+  },
+]
