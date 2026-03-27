@@ -1,0 +1,23 @@
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/**'
+
+styles:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.css'
+          - '**/*.scss'
+
+config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '*.config.*'
+          - '.github/**'
+          - 'package.json'
+          - 'tsconfig*.json'
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
