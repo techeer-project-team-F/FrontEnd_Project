@@ -29,7 +29,13 @@ export interface Book {
   publisher: string
   coverImageUrl: string
   description?: string
+  pageCount?: number
+  rating?: number
+  reviewCount?: number
 }
+
+// 읽기 상태
+export type ReadingStatus = 'reading' | 'finished' | 'want_to_read'
 
 // 감상 (메모)
 export interface Memo {
@@ -40,4 +46,8 @@ export interface Memo {
   likeCount: number
   isLiked: boolean
   createdAt: string
+  rating?: number
+  readingStatus?: ReadingStatus
+  hasSpoiler?: boolean
+  commentCount?: number
 }
