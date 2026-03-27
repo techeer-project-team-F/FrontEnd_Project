@@ -54,8 +54,15 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
     font-family: 'Newsreader', serif;
+    background-color: #ffffff;
+  }
+
+  #root {
+    @apply mx-auto min-h-screen bg-background shadow-lg;
+    max-width: 430px;
+    position: relative;
   }
 }
 
