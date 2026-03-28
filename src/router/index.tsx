@@ -3,6 +3,7 @@ import HomeFeedPage from '@/pages/HomeFeedPage'
 import LoginPage from '@/pages/LoginPage'
 import BookSearchPage from '@/pages/BookSearchPage'
 import BookDetailPage from '@/pages/BookDetailPage'
+import MyProfilePage from '@/pages/MyProfilePage'
 
 export const router = createBrowserRouter([
   {
@@ -20,5 +21,9 @@ export const router = createBrowserRouter([
   {
     path: '/book/:id',
     element: <BookDetailPage />,
+  },
+  {
+    path: '/profile',
+    element: <MyProfilePage />,
   },
 ])
