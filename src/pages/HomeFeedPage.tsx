@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { mockReviews } from '@/mocks/data'
 import BottomNav from '@/components/layout/BottomNav'
@@ -13,9 +14,12 @@ export default function HomeFeedPage() {
       <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-2xl font-bold tracking-tight text-primary">BookLog</h1>
-          <button className="rounded-full p-2 transition-colors hover:bg-primary/5">
+          <Link
+            to="/notifications"
+            className="rounded-full p-2 transition-colors hover:bg-primary/5"
+          >
             <span className="material-symbols-outlined text-primary">notifications</span>
-          </button>
+          </Link>
         </div>
         {/* Tabs */}
         <div className="flex gap-8 px-4">

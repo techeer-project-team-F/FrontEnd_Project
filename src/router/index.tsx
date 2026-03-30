@@ -8,6 +8,7 @@ import WriteReviewPage from '@/pages/WriteReviewPage'
 import ReviewDetailPage from '@/pages/ReviewDetailPage'
 import MyProfilePage from '@/pages/MyProfilePage'
 import SettingsPage from '@/pages/SettingsPage'
+import NotificationsPage from '@/pages/NotificationsPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -64,6 +65,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <MyProfilePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/notifications',
+    element: (
+      <ProtectedRoute>
+        <NotificationsPage />
       </ProtectedRoute>
     ),
   },

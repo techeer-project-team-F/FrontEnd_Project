@@ -1,4 +1,4 @@
-import type { Book, Memo, User } from '@/types'
+import type { Book, Memo, Notification, User } from '@/types'
 
 // 유저 Mock 데이터
 export const mockUsers: User[] = [
@@ -197,5 +197,55 @@ export const mockBookDetailReviews: Memo[] = [
     readingStatus: 'finished',
     hasSpoiler: false,
     commentCount: 5,
+  },
+]
+
+// 알림 Mock 데이터
+export const mockNotifications: Notification[] = [
+  {
+    id: 1,
+    type: 'like',
+    senderNickname: '김지우',
+    senderProfileImageUrl: 'https://picsum.photos/seed/noti1/100/100',
+    message: '님이 회원님의 감상에 좋아요를 눌렀습니다.',
+    isRead: false,
+    createdAt: '2시간 전',
+  },
+  {
+    id: 2,
+    type: 'comment',
+    senderNickname: '이민호',
+    senderProfileImageUrl: 'https://picsum.photos/seed/noti2/100/100',
+    message: '님이 회원님의 감상에 댓글을 남겼습니다.',
+    isRead: false,
+    createdAt: '5시간 전',
+  },
+  {
+    id: 3,
+    type: 'follow',
+    senderNickname: '박서연',
+    senderProfileImageUrl: 'https://picsum.photos/seed/noti3/100/100',
+    message: '님이 회원님을 팔로우하기 시작했습니다.',
+    isRead: true,
+    createdAt: '어제',
+  },
+  {
+    id: 4,
+    type: 'new_review',
+    senderNickname: '최준혁',
+    senderProfileImageUrl: 'https://picsum.photos/seed/noti4/100/100',
+    message: '님이 새로운 감상을 올렸습니다.',
+    isRead: true,
+    createdAt: '어제',
+    bookTitle: '데미안',
+  },
+  {
+    id: 5,
+    type: 'like',
+    senderNickname: '윤아름',
+    senderProfileImageUrl: 'https://picsum.photos/seed/noti5/100/100',
+    message: '님이 회원님의 감상에 좋아요를 눌렀습니다.',
+    isRead: true,
+    createdAt: '2일 전',
   },
 ]
