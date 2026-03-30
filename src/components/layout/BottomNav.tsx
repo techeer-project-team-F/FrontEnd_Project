@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 const navItems = [
   { label: '홈', icon: 'home', path: '/' },
   { label: '검색', icon: 'search', path: '/search' },
-  { label: '내 서재', icon: 'menu_book', path: '/library' },
+  { label: '내 서재', icon: 'menu_book', path: '/' }, // TODO: 내 서재 페이지 생성 후 /library로 변경
   { label: '프로필', icon: 'person', path: '/profile' },
 ]
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import type { Memo } from '@/types'
 import StarRating from './StarRating'
@@ -16,12 +17,20 @@ const statusLabel: Record<string, { text: string; variant: 'solid' | 'outline' }
 
 export default function ReviewCard({ review, className }: ReviewCardProps) {
   const [spoilerRevealed, setSpoilerRevealed] = useState(false)
+  const [liked, setLiked] = useState(review.isLiked)
+  const [likeCount, setLikeCount] = useState(review.likeCount)
   const status = review.readingStatus ? statusLabel[review.readingStatus] : null
 
+  const toggleLike = () => {
+    setLiked(prev => !prev)
+    setLikeCount(prev => (liked ? prev - 1 : prev + 1))
+  }
+
   return (
-    <div
+    <Link
+      to={`/review/${review.id}`}
       className={cn(
-        'overflow-hidden rounded-xl border border-primary/5 bg-card shadow-sm',
+        'block overflow-hidden rounded-xl border border-primary/5 bg-card shadow-sm',
         className
       )}
     >
@@ -76,7 +85,10 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
         {/* Review Text */}
         {review.hasSpoiler && !spoilerRevealed ? (
           <button
-            onClick={() => setSpoilerRevealed(true)}
+            onClick={e => {
+              e.preventDefault()
+              setSpoilerRevealed(true)
+            }}
             className="group relative mb-4 w-full cursor-pointer"
           >
             <div className="pointer-events-none select-none opacity-40 blur-md">
@@ -100,16 +112,30 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-6 border-t border-primary/5 pt-2">
-          <button className="flex items-center gap-1.5 transition-colors hover:text-primary">
-            <span className="material-symbols-outlined text-xl">favorite</span>
-            <span className="text-xs font-bold">{review.likeCount}</span>
+          <button
+            onClick={e => {
+              e.preventDefault()
+              toggleLike()
+            }}
+            className={cn(
+              'flex items-center gap-1.5 transition-colors hover:text-primary',
+              liked && 'text-primary'
+            )}
+          >
+            <span className={cn('material-symbols-outlined text-xl', liked && 'fill-icon')}>
+              favorite
+            </span>
+            <span className="text-xs font-bold">{likeCount}</span>
           </button>
-          <button className="flex items-center gap-1.5 transition-colors hover:text-primary">
+          <button
+            onClick={e => e.preventDefault()}
+            className="flex items-center gap-1.5 transition-colors hover:text-primary"
+          >
             <span className="material-symbols-outlined text-xl">chat_bubble</span>
             <span className="text-xs font-bold">{review.commentCount ?? 0}</span>
           </button>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }

@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { mockBooks, mockBookDetailReviews } from '@/mocks/data'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
@@ -6,7 +6,29 @@ import StarRating from '@/components/common/StarRating'
 
 export default function BookDetailPage() {
   const { id } = useParams()
-  const book = mockBooks.find(b => b.isbn === id) ?? mockBooks[3]
+  const navigate = useNavigate()
+  const book = mockBooks.find(b => b.isbn === id)
+
+  if (!book) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <AppHeader title="BookLog" showBack />
+        <main className="flex flex-1 flex-col items-center justify-center gap-4 pb-24">
+          <span className="material-symbols-outlined text-6xl text-muted-foreground/30">
+            search_off
+          </span>
+          <p className="text-lg font-bold text-muted-foreground">도서를 찾을 수 없습니다</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground"
+          >
+            돌아가기
+          </button>
+        </main>
+        <BottomNav />
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
