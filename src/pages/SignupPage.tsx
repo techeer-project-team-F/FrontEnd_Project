@@ -94,7 +94,11 @@ export default function SignupPage() {
             </p>
           </div>
 
-          <form onSubmit={step1Form.handleSubmit(onStep1Submit)} className="flex flex-1 flex-col">
+          <form
+            key="step1"
+            onSubmit={step1Form.handleSubmit(onStep1Submit)}
+            className="flex flex-1 flex-col"
+          >
             <div className="mt-4 flex flex-col gap-4 px-4 py-3">
               <div className="flex flex-col gap-2">
                 <label className="text-base font-medium">이메일</label>
@@ -191,13 +195,18 @@ export default function SignupPage() {
             </div>
           </div>
 
-          <form onSubmit={step2Form.handleSubmit(onStep2Submit)} className="flex flex-1 flex-col">
+          <form
+            key="step2"
+            onSubmit={step2Form.handleSubmit(onStep2Submit)}
+            className="flex flex-1 flex-col"
+          >
             <div className="space-y-6 px-6">
               <div className="flex flex-col gap-2">
                 <label className="ml-1 text-base font-semibold">닉네임</label>
                 <input
                   {...step2Form.register('nickname')}
                   type="text"
+                  autoComplete="one-time-code" // Chrome이 autoComplete="off"를 무시하므로 인식 불가한 값 사용
                   placeholder="사용할 닉네임을 입력하세요"
                   className="h-14 w-full rounded-xl border border-primary/20 bg-card px-4 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />

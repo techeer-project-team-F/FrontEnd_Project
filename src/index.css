@@ -56,7 +56,7 @@
   body {
     @apply text-foreground;
     font-family: 'Newsreader', serif;
-    background-color: #ffffff;
+    background-color: hsl(var(--card));
   }
 
   #root {
