@@ -57,6 +57,7 @@
     @apply text-foreground;
     font-family: 'Newsreader', serif;
     background-color: hsl(var(--card));
+    overscroll-behavior: none;
   }
 
   #root {
