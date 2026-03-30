@@ -3,10 +3,12 @@ import { mockBooks, mockBookDetailReviews } from '@/mocks/data'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
 import StarRating from '@/components/common/StarRating'
+import { useDragScroll } from '@/hooks/useDragScroll'
 
 export default function BookDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const scrollRef = useDragScroll<HTMLDivElement>()
   const book = mockBooks.find(b => b.isbn === id)
 
   if (!book) {
@@ -92,7 +94,7 @@ export default function BookDetailPage() {
             <h3 className="text-xl font-bold">독자들의 감상</h3>
             <button className="text-sm font-semibold text-primary">전체보기</button>
           </div>
-          <div className="no-scrollbar flex gap-4 overflow-x-auto px-6 pb-4">
+          <div ref={scrollRef} className="no-scrollbar flex gap-4 overflow-x-auto px-6 pb-4">
             {mockBookDetailReviews.map(review => (
               <div
                 key={review.id}
