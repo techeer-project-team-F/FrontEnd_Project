@@ -1,4 +1,4 @@
-import type { Book, Memo, Notification, User } from '@/types'
+import type { Book, LibraryBook, Memo, Notification, User } from '@/types'
 
 // 유저 Mock 데이터
 export const mockUsers: User[] = [
@@ -247,5 +247,96 @@ export const mockNotifications: Notification[] = [
     message: '님이 회원님의 감상에 좋아요를 눌렀습니다.',
     isRead: true,
     createdAt: '2일 전',
+  },
+]
+
+// 내 서재 Mock 데이터
+export const mockLibraryBooks: LibraryBook[] = [
+  { book: mockBooks[0], readingStatus: 'finished', addedAt: '2024-06-01' },
+  { book: mockBooks[2], readingStatus: 'reading', addedAt: '2024-06-10' },
+  {
+    book: {
+      isbn: '9788937460510',
+      title: '인간 실격',
+      author: '다자이 오사무',
+      publisher: '민음사',
+      coverImageUrl: 'https://picsum.photos/seed/ningen/200/300',
+      pageCount: 224,
+      rating: 4.3,
+      reviewCount: 680,
+    },
+    readingStatus: 'finished',
+    addedAt: '2024-05-20',
+  },
+  {
+    book: {
+      isbn: '9788937460527',
+      title: '이방인',
+      author: '알베르 카뮈',
+      publisher: '민음사',
+      coverImageUrl: 'https://picsum.photos/seed/stranger/200/300',
+      pageCount: 176,
+      rating: 4.4,
+      reviewCount: 750,
+    },
+    readingStatus: 'want_to_read',
+    addedAt: '2024-06-15',
+  },
+  {
+    book: {
+      isbn: '9788937460534',
+      title: '달과 6펜스',
+      author: '서머셋 몸',
+      publisher: '문학동네',
+      coverImageUrl: 'https://picsum.photos/seed/moon6/200/300',
+      pageCount: 340,
+      rating: 4.1,
+      reviewCount: 320,
+    },
+    readingStatus: 'reading',
+    addedAt: '2024-06-12',
+  },
+  { book: mockBooks[1], readingStatus: 'finished', addedAt: '2024-04-10' },
+  {
+    book: {
+      isbn: '9788937460541',
+      title: '모비 딕',
+      author: '허먼 멜빌',
+      publisher: '펭귄클래식',
+      coverImageUrl: 'https://picsum.photos/seed/mobydick/200/300',
+      pageCount: 720,
+      rating: 3.9,
+      reviewCount: 210,
+    },
+    readingStatus: 'stopped',
+    addedAt: '2024-03-01',
+  },
+  {
+    book: {
+      isbn: '9788937460558',
+      title: '어린 왕자',
+      author: '생텍쥐페리',
+      publisher: '문학동네',
+      coverImageUrl: 'https://picsum.photos/seed/prince/200/300',
+      pageCount: 136,
+      rating: 4.9,
+      reviewCount: 2100,
+    },
+    readingStatus: 'want_to_read',
+    addedAt: '2024-06-18',
+  },
+  {
+    book: {
+      isbn: '9788937460565',
+      title: '정의란 무엇인가',
+      author: '마이클 샌델',
+      publisher: '와이즈베리',
+      coverImageUrl: 'https://picsum.photos/seed/justice/200/300',
+      pageCount: 408,
+      rating: 4.2,
+      reviewCount: 980,
+    },
+    readingStatus: 'finished',
+    addedAt: '2024-02-15',
   },
 ]

@@ -49,7 +49,14 @@ export interface Notification {
 }
 
 // 읽기 상태
-export type ReadingStatus = 'reading' | 'finished' | 'want_to_read'
+export type ReadingStatus = 'reading' | 'finished' | 'want_to_read' | 'stopped'
+
+// 서재 도서
+export interface LibraryBook {
+  book: Book
+  readingStatus: ReadingStatus
+  addedAt: string
+}
 
 // 감상 (메모)
 export interface Memo {
