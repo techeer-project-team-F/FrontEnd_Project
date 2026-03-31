@@ -9,6 +9,7 @@ import ReviewDetailPage from '@/pages/ReviewDetailPage'
 import MyProfilePage from '@/pages/MyProfilePage'
 import SettingsPage from '@/pages/SettingsPage'
 import NotificationsPage from '@/pages/NotificationsPage'
+import MyLibraryPage from '@/pages/MyLibraryPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -65,6 +66,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <MyProfilePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/library',
+    element: (
+      <ProtectedRoute>
+        <MyLibraryPage />
       </ProtectedRoute>
     ),
   },
