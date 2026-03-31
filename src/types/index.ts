@@ -34,6 +34,20 @@ export interface Book {
   reviewCount?: number
 }
 
+// 알림
+export type NotificationType = 'like' | 'comment' | 'follow' | 'new_review'
+
+export interface Notification {
+  id: number
+  type: NotificationType
+  senderNickname: string
+  senderProfileImageUrl?: string
+  message: string
+  isRead: boolean
+  createdAt: string
+  bookTitle?: string
+}
+
 // 읽기 상태
 export type ReadingStatus = 'reading' | 'finished' | 'want_to_read'
 
