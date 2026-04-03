@@ -13,6 +13,7 @@ const statusLabel: Record<string, { text: string; variant: 'solid' | 'outline' }
   finished: { text: '다 읽음', variant: 'solid' },
   reading: { text: '읽는 중', variant: 'outline' },
   want_to_read: { text: '읽고 싶어요', variant: 'outline' },
+  stopped: { text: '중단', variant: 'outline' },
 }
 
 export default function ReviewCard({ review, className }: ReviewCardProps) {
