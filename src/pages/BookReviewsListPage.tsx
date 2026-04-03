@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { mockBooks, mockBookDetailReviews } from '@/mocks/data'
@@ -18,8 +18,16 @@ export default function BookReviewsListPage() {
   const [activeSort, setActiveSort] = useState('latest')
   const [revealedSpoilers, setRevealedSpoilers] = useState<Set<number>>(new Set())
 
-  const book = mockBooks.find(b => b.isbn === id) ?? mockBooks[0]
-  const reviews = mockBookDetailReviews
+  const book = mockBooks.find(b => b.isbn === id)
+
+  const sortedReviews = useMemo(() => {
+    const reviews = [...mockBookDetailReviews]
+    if (activeSort === 'rating_desc')
+      return reviews.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+    if (activeSort === 'rating_asc')
+      return reviews.sort((a, b) => (a.rating ?? 0) - (b.rating ?? 0))
+    return reviews
+  }, [activeSort])
 
   const toggleSpoiler = (reviewId: number) => {
     setRevealedSpoilers(prev => {
@@ -27,6 +35,27 @@ export default function BookReviewsListPage() {
       next.add(reviewId)
       return next
     })
+  }
+
+  if (!book) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <AppHeader title="독자 감상" showBack />
+        <main className="flex flex-1 flex-col items-center justify-center gap-4 pb-24">
+          <span className="material-symbols-outlined text-6xl text-muted-foreground/30">
+            search_off
+          </span>
+          <p className="text-lg font-bold text-muted-foreground">도서를 찾을 수 없습니다</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground"
+          >
+            돌아가기
+          </button>
+        </main>
+        <BottomNav />
+      </div>
+    )
   }
 
   return (
@@ -55,7 +84,7 @@ export default function BookReviewsListPage() {
         <section className="mb-8 px-6">
           <div className="mb-4 flex items-center justify-between">
             <span className="text-sm font-medium text-muted-foreground">
-              감상 {reviews.length}개
+              감상 {sortedReviews.length}개
             </span>
           </div>
           <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
@@ -78,7 +107,7 @@ export default function BookReviewsListPage() {
 
         {/* Review List */}
         <div className="flex flex-col gap-8 px-6">
-          {reviews.map(review => (
+          {sortedReviews.map(review => (
             <article
               key={review.id}
               onClick={() => navigate(`/review/${review.id}`)}

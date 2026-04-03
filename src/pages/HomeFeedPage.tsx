@@ -60,11 +60,20 @@ export default function HomeFeedPage() {
 
       {/* Feed */}
       <main className="flex-1 overflow-y-auto pb-24">
-        {mockReviews.map(review => (
-          <div key={review.id} className="p-4 pt-4 first:pt-4 [&:not(:first-child)]:pt-0">
-            <ReviewCard review={review} />
+        {activeTab === 'following' ? (
+          mockReviews.map(review => (
+            <div key={review.id} className="p-4 pt-4 first:pt-4 [&:not(:first-child)]:pt-0">
+              <ReviewCard review={review} />
+            </div>
+          ))
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-3 py-20">
+            <span className="material-symbols-outlined text-5xl text-muted-foreground/30">
+              auto_awesome
+            </span>
+            <p className="text-sm text-muted-foreground">추천 감상이 곧 제공됩니다</p>
           </div>
-        ))}
+        )}
       </main>
 
       <BottomNav />
