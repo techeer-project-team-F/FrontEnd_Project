@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ReadingStatus } from '@/types'
 
@@ -25,6 +25,9 @@ export default function AddToLibrarySheet({
   defaultStatus = 'want_to_read',
 }: AddToLibrarySheetProps) {
   const [selected, setSelected] = useState<ReadingStatus>(defaultStatus)
+  useEffect(() => {
+    setSelected(defaultStatus)
+  }, [defaultStatus])
   const navigate = useNavigate()
 
   if (!isOpen) return null

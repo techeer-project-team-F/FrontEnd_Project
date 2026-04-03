@@ -74,9 +74,16 @@ export default function BookSearchPage() {
       {/* Search Results */}
       <main className="flex-1 overflow-y-auto px-4 pb-24">
         <div className="flex flex-col">
-          {mockSearchResults.map(book => (
-            <BookListItem key={book.isbn} book={book} />
-          ))}
+          {mockSearchResults
+            .filter(
+              book =>
+                searchQuery === '' ||
+                book.title.includes(searchQuery) ||
+                book.author.includes(searchQuery)
+            )
+            .map(book => (
+              <BookListItem key={book.isbn} book={book} />
+            ))}
         </div>
       </main>
 

@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 
 const loginSchema = z.object({
   email: z.string().email('올바른 이메일을 입력하세요'),
-  password: z.string().min(6, '비밀번호는 6자 이상이어야 합니다'),
+  password: z.string().min(8, '비밀번호는 8자 이상이어야 합니다'),
 })
 
 type LoginForm = z.infer<typeof loginSchema>
@@ -22,6 +22,7 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   })
 
+  // TODO: API 연동 시 POST /auth/login 호출로 교체
   const onSubmit = () => {
     setAuth(
       { id: 1, nickname: '독서광', profileImageUrl: 'https://picsum.photos/seed/user1/100/100' },
@@ -46,8 +47,11 @@ export default function LoginPage() {
 
       {/* Main Form */}
       <main className="flex w-full max-w-md flex-col gap-10 px-6">
-        {/* Google Login */}
-        <button className="group flex w-full items-center justify-center gap-3 rounded-xl border border-primary/10 bg-card px-6 py-4 shadow-sm transition-all duration-300 hover:shadow-md active:scale-[0.98]">
+        {/* Google Login — TODO: API 연동 시 OAuth 흐름 구현 */}
+        <button
+          disabled
+          className="group flex w-full items-center justify-center gap-3 rounded-xl border border-primary/10 bg-card px-6 py-4 opacity-50 shadow-sm transition-all duration-300"
+        >
           <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
