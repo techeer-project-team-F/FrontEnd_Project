@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { mockNotifications } from '@/mocks/data'
 import type { NotificationType } from '@/types'
-import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
 
 const typeIcon: Record<NotificationType, { icon: string; bg: string }> = {
@@ -25,11 +25,20 @@ export default function NotificationsPage() {
     setNotifications(prev => prev.map(n => (n.id === id ? { ...n, isRead: true } : n)))
   }
 
+  const navigate = useNavigate()
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="flex h-16 items-center justify-between px-4">
-          <AppHeader title="알림" showBack className="border-none" />
+          <button
+            onClick={() => navigate(-1)}
+            className="flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
+          >
+            <span className="material-symbols-outlined">arrow_back</span>
+          </button>
+          <h1 className="text-xl font-bold tracking-tight text-primary">알림</h1>
+          <div className="w-10" />
         </div>
         {/* Tabs */}
         <div className="flex gap-6 px-4">
