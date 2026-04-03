@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Book, ReadingStatus } from '@/types'
+import type { ReadingStatus } from '@/types'
 
+// API 연동 시 props에 book: Book 추가하고,
+// handleSave에서 POST /api/v1/library { isbn: book.isbn, status: selected } 형태로 사용.
 interface AddToLibrarySheetProps {
-  book: Book
   isOpen: boolean
   onClose: () => void
+  onSave: (status: ReadingStatus) => void
   defaultStatus?: ReadingStatus
 }
 
@@ -17,9 +19,9 @@ const statusOptions: { value: ReadingStatus; label: string; emoji: string }[] = 
 ]
 
 export default function AddToLibrarySheet({
-  book,
   isOpen,
   onClose,
+  onSave,
   defaultStatus = 'want_to_read',
 }: AddToLibrarySheetProps) {
   const [selected, setSelected] = useState<ReadingStatus>(defaultStatus)
@@ -28,13 +30,12 @@ export default function AddToLibrarySheet({
   if (!isOpen) return null
 
   const handleSave = () => {
-    // Mock: 서재에 추가 (API 연동 시 교체)
-    console.log(`서재에 추가: ${book.title} - ${selected}`)
+    onSave(selected)
     onClose()
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-50 mx-auto flex max-w-[430px] flex-col justify-end">
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
 
