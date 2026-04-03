@@ -10,6 +10,7 @@ import MyProfilePage from '@/pages/MyProfilePage'
 import SettingsPage from '@/pages/SettingsPage'
 import NotificationsPage from '@/pages/NotificationsPage'
 import MyLibraryPage from '@/pages/MyLibraryPage'
+import BookReviewsListPage from '@/pages/BookReviewsListPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -42,6 +43,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <BookDetailPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/book/:id/reviews',
+    element: (
+      <ProtectedRoute>
+        <BookReviewsListPage />
       </ProtectedRoute>
     ),
   },
