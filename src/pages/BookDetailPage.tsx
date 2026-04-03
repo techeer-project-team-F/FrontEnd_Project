@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { mockBooks, mockBookDetailReviews } from '@/mocks/data'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
@@ -107,12 +107,15 @@ export default function BookDetailPage() {
         <section className="mt-12">
           <div className="mb-4 flex items-center justify-between px-6">
             <h3 className="text-xl font-bold">독자들의 감상</h3>
-            <button className="text-sm font-semibold text-primary">전체보기</button>
+            <Link to={`/book/${id}/reviews`} className="text-sm font-semibold text-primary">
+              전체보기
+            </Link>
           </div>
           <div ref={scrollRef} className="no-scrollbar flex gap-4 overflow-x-auto px-6 pb-4">
             {mockBookDetailReviews.map(review => (
-              <div
+              <Link
                 key={review.id}
+                to={`/review/${review.id}`}
                 className="min-w-[280px] rounded-xl border border-primary/5 bg-card p-4 shadow-sm"
               >
                 {/* Reviewer */}
@@ -150,7 +153,7 @@ export default function BookDetailPage() {
                 ) : (
                   <p className="line-clamp-3 text-sm text-muted-foreground">{review.content}</p>
                 )}
-              </div>
+              </Link>
             ))}
           </div>
         </section>
