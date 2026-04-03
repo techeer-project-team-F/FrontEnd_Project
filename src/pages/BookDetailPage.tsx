@@ -1,14 +1,26 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { mockBooks, mockBookDetailReviews } from '@/mocks/data'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
 import StarRating from '@/components/common/StarRating'
+import AddToLibrarySheet from '@/components/common/AddToLibrarySheet'
 import { useDragScroll } from '@/hooks/useDragScroll'
+import type { ReadingStatus } from '@/types'
+
+const statusEmoji: Record<ReadingStatus, string> = {
+  want_to_read: '📖 읽고 싶은',
+  reading: '📚 읽는 중',
+  finished: '✅ 다 읽음',
+  stopped: '⏸️ 중단',
+}
 
 export default function BookDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const scrollRef = useDragScroll<HTMLDivElement>()
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [savedStatus, setSavedStatus] = useState<ReadingStatus | null>(null)
   const book = mockBooks.find(b => b.isbn === id)
 
   if (!book) {
@@ -83,8 +95,11 @@ export default function BookDetailPage() {
 
         {/* CTA */}
         <section className="mt-8 px-6">
-          <button className="w-full rounded-xl bg-primary py-4 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform active:scale-[0.98]">
-            내 서재에 추가
+          <button
+            onClick={() => setSheetOpen(true)}
+            className="w-full rounded-xl bg-primary py-4 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform active:scale-[0.98]"
+          >
+            {savedStatus ? `${statusEmoji[savedStatus]} ✏️` : '내 서재에 추가'}
           </button>
         </section>
 
@@ -140,6 +155,13 @@ export default function BookDetailPage() {
           </div>
         </section>
       </main>
+
+      <AddToLibrarySheet
+        isOpen={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onSave={setSavedStatus}
+        defaultStatus={savedStatus ?? undefined}
+      />
 
       <BottomNav />
     </div>
