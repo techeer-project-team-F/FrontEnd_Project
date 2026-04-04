@@ -63,6 +63,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/review/write/:bookId',
+    element: (
+      <ProtectedRoute>
+        <WriteReviewPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/review/:id',
     element: (
       <ProtectedRoute>

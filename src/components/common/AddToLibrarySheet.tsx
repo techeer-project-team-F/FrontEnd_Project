@@ -8,6 +8,7 @@ interface AddToLibrarySheetProps {
   isOpen: boolean
   onClose: () => void
   onSave: (status: ReadingStatus) => void
+  bookId: string
   defaultStatus?: ReadingStatus
 }
 
@@ -22,6 +23,7 @@ export default function AddToLibrarySheet({
   isOpen,
   onClose,
   onSave,
+  bookId,
   defaultStatus = 'want_to_read',
 }: AddToLibrarySheetProps) {
   const [selected, setSelected] = useState<ReadingStatus>(defaultStatus)
@@ -85,7 +87,7 @@ export default function AddToLibrarySheet({
             <button
               onClick={() => {
                 onClose()
-                navigate('/review/write')
+                navigate(`/review/write/${bookId}`)
               }}
               className="text-sm font-semibold text-primary underline decoration-primary/30 underline-offset-4 transition-colors hover:text-primary/80"
             >
