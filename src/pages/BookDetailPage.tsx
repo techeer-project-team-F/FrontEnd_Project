@@ -163,6 +163,7 @@ export default function BookDetailPage() {
         isOpen={sheetOpen}
         onClose={() => setSheetOpen(false)}
         onSave={setSavedStatus}
+        bookId={id ?? book.isbn}
         defaultStatus={savedStatus ?? undefined}
       />
 
