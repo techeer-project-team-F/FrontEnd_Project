@@ -1,8 +1,11 @@
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+
+const ONBOARDING_KEY = 'booklog-onboarding-complete'
 
 const loginSchema = z.object({
   email: z.string().email('올바른 이메일을 입력하세요'),
@@ -14,6 +17,13 @@ type LoginForm = z.infer<typeof loginSchema>
 export default function LoginPage() {
   const navigate = useNavigate()
   const setAuth = useAuthStore(state => state.setAuth)
+
+  // 온보딩을 완료하지 않은 사용자는 온보딩 페이지로 리다이렉트
+  useEffect(() => {
+    if (localStorage.getItem(ONBOARDING_KEY) !== 'true') {
+      navigate('/onboarding', { replace: true })
+    }
+  }, [navigate])
   const {
     register,
     handleSubmit,
