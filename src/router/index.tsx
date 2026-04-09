@@ -11,6 +11,7 @@ import SettingsPage from '@/pages/SettingsPage'
 import NotificationsPage from '@/pages/NotificationsPage'
 import MyLibraryPage from '@/pages/MyLibraryPage'
 import BookReviewsListPage from '@/pages/BookReviewsListPage'
+import OnboardingPage from '@/pages/OnboardingPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -21,6 +22,10 @@ export const router = createBrowserRouter([
         <HomeFeedPage />
       </ProtectedRoute>
     ),
+  },
+  {
+    path: '/onboarding',
+    element: <OnboardingPage />,
   },
   {
     path: '/login',
