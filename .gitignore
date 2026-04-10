@@ -38,3 +38,6 @@ Thumbs.db
 
 # Claude Code
 .omc
+
+*storybook.log
+storybook-static
