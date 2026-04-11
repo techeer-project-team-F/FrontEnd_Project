@@ -17,10 +17,10 @@ export default function BookListItem({ book, className }: BookListItemProps) {
       <div className="h-36 w-24 shrink-0 overflow-hidden rounded-lg bg-primary/5 shadow-sm">
         <img src={book.coverImageUrl} alt={book.title} className="size-full object-cover" />
       </div>
-      <div className="flex flex-1 flex-col gap-1">
-        <h3 className="text-lg font-bold leading-tight text-primary">{book.title}</h3>
-        <p className="text-sm text-muted-foreground">{book.author} 저</p>
-        <p className="text-xs text-muted-foreground/70">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <h3 className="line-clamp-2 text-lg font-bold leading-tight text-primary">{book.title}</h3>
+        <p className="truncate text-sm text-muted-foreground">{book.author} 저</p>
+        <p className="truncate text-xs text-muted-foreground/70">
           {book.publisher}
           {book.pageCount && ` · ${book.pageCount}p`}
         </p>
