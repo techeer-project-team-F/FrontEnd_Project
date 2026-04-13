@@ -5,6 +5,9 @@ interface User {
   id: number
   nickname: string
   profileImageUrl?: string
+  email?: string
+  emailVerified?: boolean
+  onboardingCompleted?: boolean
 }
 
 interface AuthState {
