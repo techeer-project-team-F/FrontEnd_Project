@@ -4,11 +4,17 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { signup, checkEmail } from '@/api/auth'
+
+// 백엔드 SignupRequest의 비밀번호 정규식과 동일하게 유지
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/
 
 const step1Schema = z
   .object({
     email: z.string().email('올바른 이메일을 입력하세요'),
-    password: z.string().min(8, '비밀번호는 8자 이상이어야 합니다'),
+    password: z
+      .string()
+      .regex(PASSWORD_REGEX, '비밀번호는 8자 이상, 영문+숫자+특수문자(@$!%*#?&)를 포함해야 합니다'),
     passwordConfirm: z.string(),
   })
   .refine(data => data.password === data.passwordConfirm, {
@@ -18,6 +24,8 @@ const step1Schema = z
 
 const step2Schema = z.object({
   nickname: z.string().min(2, '닉네임은 2자 이상이어야 합니다'),
+  // 백엔드 SignupRequest에 bio 필드가 아직 없어서 회원가입 호출 시 전송하지 않음.
+  // 백엔드 bio 지원 머지 후 별도 이슈에서 전송 로직 추가 예정.
   bio: z.string().optional(),
 })
 
@@ -27,6 +35,9 @@ type Step2Form = z.infer<typeof step2Schema>
 export default function SignupPage() {
   const [step, setStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
+  const [isStep1Loading, setIsStep1Loading] = useState(false)
+  const [isStep2Loading, setIsStep2Loading] = useState(false)
+  const [step2ErrorMessage, setStep2ErrorMessage] = useState<string | null>(null)
   const navigate = useNavigate()
   const setAuth = useAuthStore(state => state.setAuth)
 
@@ -38,21 +49,55 @@ export default function SignupPage() {
     resolver: zodResolver(step2Schema),
   })
 
-  const onStep1Submit = () => {
-    setStep(2)
+  const onStep1Submit = async () => {
+    setIsStep1Loading(true)
+    try {
+      const email = step1Form.getValues('email')
+      const result = await checkEmail(email)
+      if (!result.available) {
+        step1Form.setError('email', { message: '이미 사용 중인 이메일입니다' })
+        return
+      }
+      setStep(2)
+    } catch (error) {
+      step1Form.setError('email', {
+        message: error instanceof Error ? error.message : '이메일 확인에 실패했습니다.',
+      })
+    } finally {
+      setIsStep1Loading(false)
+    }
   }
 
-  const onStep2Submit = (data: Step2Form) => {
-    // Mock: 회원가입 성공 후 자동 로그인
-    setAuth(
-      {
-        id: Date.now(),
+  const onStep2Submit = async (data: Step2Form) => {
+    setIsStep2Loading(true)
+    setStep2ErrorMessage(null)
+    try {
+      const { email, password } = step1Form.getValues()
+      const result = await signup({
+        email,
+        password,
         nickname: data.nickname,
-        profileImageUrl: undefined,
-      },
-      'mock-signup-token'
-    )
-    navigate('/')
+      })
+      setAuth(
+        {
+          id: result.user.userId,
+          nickname: result.user.nickname,
+          email: result.user.email,
+          emailVerified: result.user.emailVerified,
+        },
+        result.accessToken
+      )
+      navigate('/')
+    } catch (error) {
+      setStep2ErrorMessage(error instanceof Error ? error.message : '회원가입에 실패했습니다.')
+    } finally {
+      setIsStep2Loading(false)
+    }
+  }
+
+  const handleBackToStep1 = () => {
+    setStep2ErrorMessage(null)
+    setStep(1)
   }
 
   return (
@@ -60,7 +105,7 @@ export default function SignupPage() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 pb-2">
         <button
-          onClick={() => (step === 1 ? navigate(-1) : setStep(1))}
+          onClick={() => (step === 1 ? navigate(-1) : handleBackToStep1())}
           className="flex size-12 shrink-0 items-center text-primary"
         >
           <span className="material-symbols-outlined text-[24px]">arrow_back</span>
@@ -160,9 +205,10 @@ export default function SignupPage() {
             <div className="mt-auto mb-8 p-4">
               <button
                 type="submit"
-                className="h-14 w-full rounded-xl bg-primary text-lg font-bold text-primary-foreground shadow-lg shadow-primary/10 transition-colors hover:bg-primary/90"
+                disabled={isStep1Loading}
+                className="h-14 w-full rounded-xl bg-primary text-lg font-bold text-primary-foreground shadow-lg shadow-primary/10 transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                다음
+                {isStep1Loading ? '확인 중...' : '다음'}
               </button>
               <div className="mt-6 flex justify-center">
                 <p className="text-sm">
@@ -228,12 +274,23 @@ export default function SignupPage() {
             </div>
 
             <div className="mt-auto p-6 pb-10">
+              {step2ErrorMessage && (
+                <p
+                  role="alert"
+                  className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
+                >
+                  {step2ErrorMessage}
+                </p>
+              )}
               <button
                 type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-primary-foreground shadow-md transition-colors hover:bg-primary/90"
+                disabled={isStep2Loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-primary-foreground shadow-md transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <span>시작하기</span>
-                <span className="material-symbols-outlined">arrow_forward</span>
+                <span>{isStep2Loading ? '가입 중...' : '시작하기'}</span>
+                {!isStep2Loading && (
+                  <span className="material-symbols-outlined">arrow_forward</span>
+                )}
               </button>
               <p className="mt-4 text-center text-sm text-muted-foreground">
                 나중에 언제든지 수정할 수 있습니다.
