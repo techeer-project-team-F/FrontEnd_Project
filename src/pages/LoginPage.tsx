@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { login } from '@/api/auth'
+import { login, getGoogleLoginUrl } from '@/api/auth'
 
 const ONBOARDING_KEY = 'booklog-onboarding-complete'
 
@@ -21,6 +21,8 @@ export default function LoginPage() {
 
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [googleErrorMessage, setGoogleErrorMessage] = useState<string | null>(null)
 
   // 온보딩을 완료하지 않은 사용자는 온보딩 페이지로 리다이렉트
   useEffect(() => {
@@ -35,6 +37,20 @@ export default function LoginPage() {
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   })
+
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true)
+    setGoogleErrorMessage(null)
+    try {
+      const { loginUrl } = await getGoogleLoginUrl()
+      window.location.href = loginUrl
+    } catch (error) {
+      setGoogleErrorMessage(
+        error instanceof Error ? error.message : 'Google 로그인 URL을 받아오지 못했습니다.'
+      )
+      setIsGoogleLoading(false)
+    }
+  }
 
   const onSubmit = async (formData: LoginForm) => {
     setIsLoading(true)
@@ -79,10 +95,12 @@ export default function LoginPage() {
 
       {/* Main Form */}
       <main className="flex w-full max-w-md flex-col gap-10 px-6">
-        {/* Google Login — TODO: API 연동 시 OAuth 흐름 구현 */}
+        {/* Google Login */}
         <button
-          disabled
-          className="group flex w-full items-center justify-center gap-3 rounded-xl border border-primary/10 bg-card px-6 py-4 opacity-50 shadow-sm transition-all duration-300"
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={isGoogleLoading}
+          className="group flex w-full items-center justify-center gap-3 rounded-xl border border-primary/10 bg-card px-6 py-4 shadow-sm transition-all duration-300 hover:bg-card/80 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path
@@ -102,8 +120,18 @@ export default function LoginPage() {
               fill="#EA4335"
             />
           </svg>
-          <span className="text-base font-medium">Google 로그인</span>
+          <span className="text-base font-medium">
+            {isGoogleLoading ? 'Google 로그인 페이지로 이동 중...' : 'Google 로그인'}
+          </span>
         </button>
+        {googleErrorMessage && (
+          <p
+            role="alert"
+            className="-mt-6 rounded-lg bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
+          >
+            {googleErrorMessage}
+          </p>
+        )}
 
         {/* Divider */}
         <div className="relative flex items-center py-4">

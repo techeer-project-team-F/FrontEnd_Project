@@ -44,6 +44,26 @@ export interface CheckEmailResponse {
   available: boolean
 }
 
+export interface OAuthLoginUrlResponse {
+  loginUrl: string
+}
+
+export interface GoogleLoginUserInfo {
+  userId: number
+  email: string
+  nickname: string
+  profileImageUrl: string | null
+  emailVerified: boolean
+  onboardingCompleted: boolean
+}
+
+export interface GoogleLoginResponse {
+  accessToken: string
+  accessTokenExpiresIn: number
+  isNewUser: boolean
+  user: GoogleLoginUserInfo
+}
+
 interface ApiResponse<T> {
   status: 'SUCCESS' | 'ERROR'
   code: number
@@ -106,5 +126,37 @@ export async function checkEmail(email: string): Promise<CheckEmailResponse> {
     return data.data
   } catch (error) {
     throw normalizeAxiosError(error, '이메일 확인에 실패했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
+
+export async function getGoogleLoginUrl(): Promise<OAuthLoginUrlResponse> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<OAuthLoginUrlResponse>>(
+      '/api/v1/auth/oauth2/google'
+    )
+    if (!data.data) {
+      throw new Error(data.message ?? 'Google 로그인 URL 응답이 올바르지 않습니다.')
+    }
+    return data.data
+  } catch (error) {
+    throw normalizeAxiosError(
+      error,
+      'Google 로그인 URL을 받아오지 못했습니다. 잠시 후 다시 시도해주세요.'
+    )
+  }
+}
+
+export async function googleLogin(code: string, redirectUri: string): Promise<GoogleLoginResponse> {
+  try {
+    const { data } = await apiClient.post<ApiResponse<GoogleLoginResponse>>(
+      '/api/v1/auth/oauth2/google/login',
+      { code, redirectUri }
+    )
+    if (!data.data) {
+      throw new Error(data.message ?? 'Google 로그인 응답이 올바르지 않습니다.')
+    }
+    return data.data
+  } catch (error) {
+    throw normalizeAxiosError(error, 'Google 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.')
   }
 }

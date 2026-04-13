@@ -12,6 +12,7 @@ import NotificationsPage from '@/pages/NotificationsPage'
 import MyLibraryPage from '@/pages/MyLibraryPage'
 import BookReviewsListPage from '@/pages/BookReviewsListPage'
 import OnboardingPage from '@/pages/OnboardingPage'
+import AuthCallbackPage from '@/pages/AuthCallbackPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -34,6 +35,10 @@ export const router = createBrowserRouter([
   {
     path: '/signup',
     element: <SignupPage />,
+  },
+  {
+    path: '/auth/callback/google',
+    element: <AuthCallbackPage />,
   },
   {
     path: '/search',
