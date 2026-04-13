@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { login } from '@/api/auth'
 
 const ONBOARDING_KEY = 'booklog-onboarding-complete'
 
@@ -17,6 +18,9 @@ type LoginForm = z.infer<typeof loginSchema>
 export default function LoginPage() {
   const navigate = useNavigate()
   const setAuth = useAuthStore(state => state.setAuth)
+
+  const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   // 온보딩을 완료하지 않은 사용자는 온보딩 페이지로 리다이렉트
   useEffect(() => {
@@ -32,13 +36,31 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   })
 
-  // TODO: API 연동 시 POST /auth/login 호출로 교체
-  const onSubmit = () => {
-    setAuth(
-      { id: 1, nickname: '독서광', profileImageUrl: 'https://picsum.photos/seed/user1/100/100' },
-      'mock-access-token'
-    )
-    navigate('/')
+  const onSubmit = async (formData: LoginForm) => {
+    setIsLoading(true)
+    setErrorMessage(null)
+    try {
+      const result = await login({
+        email: formData.email,
+        password: formData.password,
+      })
+      setAuth(
+        {
+          id: result.user.userId,
+          nickname: result.user.nickname,
+          profileImageUrl: result.user.profileImageUrl ?? undefined,
+          email: result.user.email,
+          emailVerified: result.user.emailVerified,
+          onboardingCompleted: result.user.onboardingCompleted,
+        },
+        result.accessToken
+      )
+      navigate('/')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '로그인에 실패했습니다.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -123,11 +145,21 @@ export default function LoginPage() {
             )}
           </div>
 
+          {errorMessage && (
+            <p
+              role="alert"
+              className="rounded-lg bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
+            >
+              {errorMessage}
+            </p>
+          )}
+
           <button
             type="submit"
-            className="mt-4 w-full rounded-xl bg-primary py-4 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-95 active:scale-[0.98]"
+            disabled={isLoading}
+            className="mt-4 w-full rounded-xl bg-primary py-4 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            로그인
+            {isLoading ? '로그인 중...' : '로그인'}
           </button>
         </form>
       </main>
