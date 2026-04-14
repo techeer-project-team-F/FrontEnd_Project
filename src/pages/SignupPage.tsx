@@ -24,9 +24,7 @@ const step1Schema = z
 
 const step2Schema = z.object({
   nickname: z.string().min(2, '닉네임은 2자 이상이어야 합니다'),
-  // 백엔드 SignupRequest에 bio 필드가 아직 없어서 회원가입 호출 시 전송하지 않음.
-  // 백엔드 bio 지원 머지 후 별도 이슈에서 전송 로직 추가 예정.
-  bio: z.string().optional(),
+  bio: z.string().max(300, '소개글은 300자 이하로 입력해주세요').optional(),
 })
 
 type Step1Form = z.infer<typeof step1Schema>
@@ -73,16 +71,19 @@ export default function SignupPage() {
     setStep2ErrorMessage(null)
     try {
       const { email, password } = step1Form.getValues()
+      const trimmedBio = data.bio?.trim()
       const result = await signup({
         email,
         password,
         nickname: data.nickname,
+        ...(trimmedBio ? { bio: trimmedBio } : {}),
       })
       setAuth(
         {
           id: result.user.userId,
           nickname: result.user.nickname,
           email: result.user.email,
+          bio: result.user.bio,
           emailVerified: result.user.emailVerified,
         },
         result.accessToken
@@ -267,9 +268,22 @@ export default function SignupPage() {
                 <label className="ml-1 text-base font-semibold">소개글 (선택)</label>
                 <textarea
                   {...step2Form.register('bio')}
+                  maxLength={300}
                   placeholder="당신의 독서 취향이나 간단한 소개를 남겨보세요."
                   className="min-h-[100px] w-full resize-none rounded-xl border border-primary/20 bg-card p-4 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
+                <div className="flex items-center justify-between px-1">
+                  {step2Form.formState.errors.bio ? (
+                    <p className="text-xs text-destructive">
+                      {step2Form.formState.errors.bio.message}
+                    </p>
+                  ) : (
+                    <span />
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {step2Form.watch('bio')?.length ?? 0}/300
+                  </p>
+                </div>
               </div>
             </div>
 
