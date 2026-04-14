@@ -265,10 +265,13 @@ export default function SignupPage() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="ml-1 text-base font-semibold">소개글 (선택)</label>
+                <label className="ml-1 text-base font-semibold" htmlFor="signup-bio">
+                  소개글 (선택)
+                </label>
                 <textarea
+                  id="signup-bio"
                   {...step2Form.register('bio')}
-                  maxLength={300}
+                  aria-describedby="signup-bio-counter"
                   placeholder="당신의 독서 취향이나 간단한 소개를 남겨보세요."
                   className="min-h-[100px] w-full resize-none rounded-xl border border-primary/20 bg-card p-4 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
@@ -280,7 +283,15 @@ export default function SignupPage() {
                   ) : (
                     <span />
                   )}
-                  <p className="text-xs text-muted-foreground">
+                  <p
+                    id="signup-bio-counter"
+                    aria-live="polite"
+                    className={`text-xs ${
+                      (step2Form.watch('bio')?.length ?? 0) > 300
+                        ? 'text-destructive'
+                        : 'text-muted-foreground'
+                    }`}
+                  >
                     {step2Form.watch('bio')?.length ?? 0}/300
                   </p>
                 </div>
