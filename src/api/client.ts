@@ -23,7 +23,9 @@ apiClient.interceptors.request.use(config => {
 apiClient.interceptors.response.use(
   response => response,
   async error => {
-    if (error.response?.status === 401) {
+    const requestUrl: string = error.config?.url ?? ''
+    const isLogoutCall = requestUrl.includes('/api/v1/auth/logout')
+    if (error.response?.status === 401 && !isLogoutCall) {
       const wasAuthenticated = useAuthStore.getState().isAuthenticated
       if (wasAuthenticated) {
         useAuthStore.getState().clearAuth()

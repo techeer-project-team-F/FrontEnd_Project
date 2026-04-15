@@ -26,10 +26,18 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       isAuthenticated: false,
       setAuth: (user, accessToken) => set({ user, accessToken, isAuthenticated: true }),
-      clearAuth: () => set({ user: null, accessToken: null, isAuthenticated: false }),
+      clearAuth: () => {
+        set({ user: null, accessToken: null, isAuthenticated: false })
+        useAuthStore.persist.clearStorage?.()
+      },
     }),
     {
       name: 'auth-storage',
+      partialize: state => ({
+        user: state.user,
+        accessToken: state.accessToken,
+        isAuthenticated: state.isAuthenticated,
+      }),
     }
   )
 )
