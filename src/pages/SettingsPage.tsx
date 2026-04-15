@@ -1,8 +1,28 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
+import { logout } from '@/api/auth'
+import { useAuthStore } from '@/store/authStore'
 
 export default function SettingsPage() {
+  const navigate = useNavigate()
+  const clearAuth = useAuthStore(state => state.clearAuth)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return
+    setIsLoggingOut(true)
+    try {
+      await logout()
+    } catch (error) {
+      console.error('로그아웃 API 호출 실패:', error)
+    } finally {
+      clearAuth()
+      navigate('/login', { replace: true })
+    }
+  }
+
   const [likeAlert, setLikeAlert] = useState(true)
   const [commentAlert, setCommentAlert] = useState(true)
   const [newFollowerAlert, setNewFollowerAlert] = useState(true)
@@ -143,9 +163,11 @@ export default function SettingsPage() {
         <section className="px-5 pt-10">
           <button
             type="button"
-            className="h-16 w-full rounded-full bg-primary text-xl font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.99]"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="h-16 w-full rounded-full bg-primary text-xl font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.99] disabled:opacity-60"
           >
-            로그아웃
+            {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
           </button>
         </section>
 
