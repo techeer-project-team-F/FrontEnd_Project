@@ -66,6 +66,7 @@ export default function LoginPage() {
           nickname: result.user.nickname,
           profileImageUrl: result.user.profileImageUrl ?? undefined,
           email: result.user.email,
+          bio: result.user.bio,
           emailVerified: result.user.emailVerified,
           onboardingCompleted: result.user.onboardingCompleted,
         },

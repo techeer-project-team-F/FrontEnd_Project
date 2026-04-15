@@ -11,6 +11,7 @@ export interface LoginUserInfo {
   email: string
   nickname: string
   profileImageUrl: string | null
+  bio: string | null
   emailVerified: boolean
   onboardingCompleted: boolean
 }
@@ -25,12 +26,14 @@ export interface SignupRequest {
   email: string
   password: string
   nickname: string
+  bio?: string
 }
 
 export interface SignupUserInfo {
   userId: number
   email: string
   nickname: string
+  bio: string | null
   emailVerified: boolean
 }
 

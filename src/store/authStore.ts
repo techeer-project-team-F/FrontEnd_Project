@@ -6,6 +6,7 @@ interface User {
   nickname: string
   profileImageUrl?: string
   email?: string
+  bio?: string | null
   emailVerified?: boolean
   onboardingCompleted?: boolean
 }
