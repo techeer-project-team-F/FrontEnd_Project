@@ -77,6 +77,7 @@ export default function SignupPage() {
 
   const watchedNickname = step2Form.watch('nickname')
   useEffect(() => {
+    setStep2ErrorMessage(null)
     debouncedCheckNickname(watchedNickname ?? '')
     return () => {
       if (nicknameTimerRef.current) clearTimeout(nicknameTimerRef.current)
