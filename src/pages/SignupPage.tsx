@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { signup, checkEmail } from '@/api/auth'
+import { signup, checkEmail, checkNickname } from '@/api/auth'
 import { PASSWORD_REGEX } from '@/constants/validation'
 
 const step1Schema = z
@@ -34,6 +34,10 @@ export default function SignupPage() {
   const [isStep1Loading, setIsStep1Loading] = useState(false)
   const [isStep2Loading, setIsStep2Loading] = useState(false)
   const [step2ErrorMessage, setStep2ErrorMessage] = useState<string | null>(null)
+  const [nicknameStatus, setNicknameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>(
+    'idle'
+  )
+  const nicknameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const navigate = useNavigate()
   const setAuth = useAuthStore(state => state.setAuth)
 
@@ -44,6 +48,41 @@ export default function SignupPage() {
   const step2Form = useForm<Step2Form>({
     resolver: zodResolver(step2Schema),
   })
+
+  const debouncedCheckNickname = useCallback(
+    (nickname: string) => {
+      if (nicknameTimerRef.current) clearTimeout(nicknameTimerRef.current)
+      if (nickname.length < 2) {
+        setNicknameStatus('idle')
+        return
+      }
+      setNicknameStatus('checking')
+      nicknameTimerRef.current = setTimeout(async () => {
+        try {
+          const result = await checkNickname(nickname)
+          const current = step2Form.getValues('nickname')
+          if (current === nickname) {
+            setNicknameStatus(result.available ? 'available' : 'taken')
+          }
+        } catch {
+          const current = step2Form.getValues('nickname')
+          if (current === nickname) {
+            setNicknameStatus('idle')
+          }
+        }
+      }, 400)
+    },
+    [step2Form]
+  )
+
+  const watchedNickname = step2Form.watch('nickname')
+  useEffect(() => {
+    setStep2ErrorMessage(null)
+    debouncedCheckNickname(watchedNickname ?? '')
+    return () => {
+      if (nicknameTimerRef.current) clearTimeout(nicknameTimerRef.current)
+    }
+  }, [watchedNickname, debouncedCheckNickname])
 
   const onStep1Submit = async () => {
     setIsStep1Loading(true)
@@ -65,6 +104,14 @@ export default function SignupPage() {
   }
 
   const onStep2Submit = async (data: Step2Form) => {
+    if (nicknameStatus === 'taken') {
+      setStep2ErrorMessage('이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.')
+      return
+    }
+    if (nicknameStatus === 'checking') {
+      setStep2ErrorMessage('닉네임 중복 확인 중입니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
     setIsStep2Loading(true)
     setStep2ErrorMessage(null)
     try {
@@ -247,12 +294,16 @@ export default function SignupPage() {
           >
             <div className="space-y-6 px-6">
               <div className="flex flex-col gap-2">
-                <label className="ml-1 text-base font-semibold">닉네임</label>
+                <label htmlFor="signup-nickname" className="ml-1 text-base font-semibold">
+                  닉네임
+                </label>
                 <input
+                  id="signup-nickname"
                   {...step2Form.register('nickname')}
                   type="text"
                   autoComplete="one-time-code" // Chrome이 autoComplete="off"를 무시하므로 인식 불가한 값 사용
                   placeholder="사용할 닉네임을 입력하세요"
+                  aria-describedby="nickname-status"
                   className="h-14 w-full rounded-xl border border-primary/20 bg-card px-4 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
                 {step2Form.formState.errors.nickname && (
@@ -260,6 +311,17 @@ export default function SignupPage() {
                     {step2Form.formState.errors.nickname.message}
                   </p>
                 )}
+                <div id="nickname-status" aria-live="polite">
+                  {!step2Form.formState.errors.nickname && nicknameStatus === 'checking' && (
+                    <p className="ml-1 text-xs text-muted-foreground">확인 중...</p>
+                  )}
+                  {!step2Form.formState.errors.nickname && nicknameStatus === 'available' && (
+                    <p className="ml-1 text-xs text-green-600">사용 가능한 닉네임입니다</p>
+                  )}
+                  {!step2Form.formState.errors.nickname && nicknameStatus === 'taken' && (
+                    <p className="ml-1 text-xs text-destructive">이미 사용 중인 닉네임입니다</p>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">
