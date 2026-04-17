@@ -16,7 +16,6 @@ export default function PasswordResetRequestPage() {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
   const [isSent, setIsSent] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const {
     register,
@@ -29,15 +28,12 @@ export default function PasswordResetRequestPage() {
   const onSubmit = async (data: FormData) => {
     if (isLoading) return
     setIsLoading(true)
-    setErrorMessage(null)
     try {
       await requestPasswordReset(data.email)
-      setIsSent(true)
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : '요청에 실패했습니다. 잠시 후 다시 시도해주세요.'
-      )
+    } catch {
+      // 이메일 존재 여부 노출 방지: 성공/실패 무관하게 동일한 안내 화면 표시
     } finally {
+      setIsSent(true)
       setIsLoading(false)
     }
   }
@@ -92,15 +88,6 @@ export default function PasswordResetRequestPage() {
                   </p>
                 )}
               </div>
-
-              {errorMessage && (
-                <p
-                  role="alert"
-                  className="rounded-lg bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
-                >
-                  {errorMessage}
-                </p>
-              )}
 
               <button
                 type="submit"
