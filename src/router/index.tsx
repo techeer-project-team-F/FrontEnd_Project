@@ -13,6 +13,8 @@ import MyLibraryPage from '@/pages/MyLibraryPage'
 import BookReviewsListPage from '@/pages/BookReviewsListPage'
 import OnboardingPage from '@/pages/OnboardingPage'
 import AuthCallbackPage from '@/pages/AuthCallbackPage'
+import PasswordResetRequestPage from '@/pages/PasswordResetRequestPage'
+import PasswordResetPage from '@/pages/PasswordResetPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -39,6 +41,14 @@ export const router = createBrowserRouter([
   {
     path: '/auth/callback/google',
     element: <AuthCallbackPage />,
+  },
+  {
+    path: '/password-reset-request',
+    element: <PasswordResetRequestPage />,
+  },
+  {
+    path: '/password-reset',
+    element: <PasswordResetPage />,
   },
   {
     path: '/search',

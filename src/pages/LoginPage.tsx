@@ -159,9 +159,12 @@ export default function LoginPage() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between px-1">
               <label className="text-sm font-semibold">비밀번호</label>
-              <span className="cursor-pointer text-[13px] text-primary hover:underline">
+              <Link
+                to="/password-reset-request"
+                className="text-[13px] text-primary hover:underline"
+              >
                 비밀번호를 잊으셨나요?
-              </span>
+              </Link>
             </div>
             <input
               {...register('password')}
