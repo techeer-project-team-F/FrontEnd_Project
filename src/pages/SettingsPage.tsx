@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
-import { logout } from '@/api/auth'
+import { logout, resendEmailCode } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 
 export default function SettingsPage() {
   const navigate = useNavigate()
   const clearAuth = useAuthStore(state => state.clearAuth)
+  const user = useAuthStore(state => state.user)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = async () => {
@@ -16,10 +17,33 @@ export default function SettingsPage() {
     try {
       await logout()
     } catch (error) {
+      // TODO: [코드 리뷰 LOW] 프로덕션에서 console.error 잔류 이슈
+      // 공용 토스트/알림 시스템 도입 후 console.error 대신 사용자 피드백으로 교체하거나,
+      // 로그아웃은 실패해도 UX상 무조건 성공으로 처리하므로 로깅 자체를 제거할 것
       console.error('로그아웃 API 호출 실패:', error)
     } finally {
       clearAuth()
       navigate('/login', { replace: true })
+    }
+  }
+
+  const [isSendingVerification, setIsSendingVerification] = useState(false)
+
+  const [verificationError, setVerificationError] = useState<string | null>(null)
+
+  const handleVerifyEmail = async () => {
+    if (isSendingVerification || !user?.email) return
+    setIsSendingVerification(true)
+    setVerificationError(null)
+    try {
+      await resendEmailCode(user.email)
+      navigate('/verify-email', { state: { email: user.email } })
+    } catch (error) {
+      setVerificationError(
+        error instanceof Error ? error.message : '인증 코드 발송에 실패했습니다.'
+      )
+    } finally {
+      setIsSendingVerification(false)
     }
   }
 
@@ -99,6 +123,37 @@ export default function SettingsPage() {
       <AppHeader title="설정" showBack />
 
       <main className="flex-1 overflow-y-auto pb-24">
+        {/* Email Verification Banner */}
+        {user && !user.emailVerified && (
+          <section className="px-5 pt-6">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between rounded-2xl bg-amber-50 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[20px] text-amber-600">
+                    warning
+                  </span>
+                  <span className="text-sm font-medium text-foreground">
+                    이메일 인증이 완료되지 않았습니다.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleVerifyEmail}
+                  disabled={isSendingVerification}
+                  className="text-sm font-semibold text-primary hover:underline disabled:opacity-60"
+                >
+                  {isSendingVerification ? '발송 중...' : '인증하기'}
+                </button>
+              </div>
+              {verificationError && (
+                <p role="alert" className="px-2 text-xs text-destructive">
+                  {verificationError}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Notification Settings */}
         <section className="px-5 pt-6">
           <h2 className="mb-3 text-lg font-bold text-primary/80">알림 설정</h2>
