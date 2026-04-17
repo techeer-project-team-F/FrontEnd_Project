@@ -149,6 +149,34 @@ export async function getGoogleLoginUrl(): Promise<OAuthLoginUrlResponse> {
   }
 }
 
+export interface EmailVerifyResponse {
+  email: string
+  emailVerified: boolean
+}
+
+export async function verifyEmail(email: string, code: string): Promise<EmailVerifyResponse> {
+  try {
+    const { data } = await apiClient.post<ApiResponse<EmailVerifyResponse>>(
+      '/api/v1/auth/email/verify',
+      { email, code }
+    )
+    if (!data.data) {
+      throw new Error(data.message ?? '이메일 인증 응답이 올바르지 않습니다.')
+    }
+    return data.data
+  } catch (error) {
+    throw normalizeAxiosError(error, '이메일 인증에 실패했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
+
+export async function resendEmailCode(email: string): Promise<void> {
+  try {
+    await apiClient.post('/api/v1/auth/email/resend', { email })
+  } catch (error) {
+    throw normalizeAxiosError(error, '인증 코드 재발송에 실패했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
+
 export async function requestPasswordReset(email: string): Promise<void> {
   try {
     await apiClient.post('/api/v1/auth/password/reset-request', { email })
