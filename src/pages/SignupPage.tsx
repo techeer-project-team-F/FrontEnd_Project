@@ -103,7 +103,14 @@ export default function SignupPage() {
   }
 
   const onStep2Submit = async (data: Step2Form) => {
-    if (nicknameStatus === 'taken' || nicknameStatus === 'checking') return
+    if (nicknameStatus === 'taken') {
+      setStep2ErrorMessage('이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.')
+      return
+    }
+    if (nicknameStatus === 'checking') {
+      setStep2ErrorMessage('닉네임 중복 확인 중입니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
     setIsStep2Loading(true)
     setStep2ErrorMessage(null)
     try {
