@@ -57,6 +57,7 @@ export default function EmailVerificationPage() {
     e.preventDefault()
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
     if (!pasted) return
+    setErrorMessage(null)
     const newCode = [...code]
     for (let i = 0; i < 6; i++) {
       newCode[i] = pasted[i] ?? ''
@@ -72,7 +73,7 @@ export default function EmailVerificationPage() {
       setErrorMessage('6자리 코드를 모두 입력해주세요.')
       return
     }
-    if (isVerifying) return
+    if (isVerifying || isResending) return
     setIsVerifying(true)
     setErrorMessage(null)
     try {
@@ -98,7 +99,7 @@ export default function EmailVerificationPage() {
   }
 
   const handleResend = async () => {
-    if (isResending) return
+    if (isResending || isVerifying) return
     setIsResending(true)
     setResendMessage(null)
     setErrorMessage(null)
