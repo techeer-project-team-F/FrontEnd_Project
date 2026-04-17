@@ -5,9 +5,7 @@ import { z } from 'zod'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { signup, checkEmail } from '@/api/auth'
-
-// 백엔드 SignupRequest의 비밀번호 정규식과 동일하게 유지
-const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/
+import { PASSWORD_REGEX } from '@/constants/validation'
 
 const step1Schema = z
   .object({
