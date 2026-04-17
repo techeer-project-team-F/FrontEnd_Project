@@ -43,7 +43,7 @@ export interface SignupResponse {
   user: SignupUserInfo
 }
 
-export interface CheckEmailResponse {
+export interface CheckAvailabilityResponse {
   available: boolean
 }
 
@@ -117,9 +117,24 @@ export async function signup(request: SignupRequest): Promise<SignupResponse> {
   }
 }
 
-export async function checkEmail(email: string): Promise<CheckEmailResponse> {
+export async function checkNickname(nickname: string): Promise<CheckAvailabilityResponse> {
   try {
-    const { data } = await apiClient.get<ApiResponse<CheckEmailResponse>>(
+    const { data } = await apiClient.get<ApiResponse<CheckAvailabilityResponse>>(
+      '/api/v1/auth/check-nickname',
+      { params: { nickname } }
+    )
+    if (!data.data) {
+      throw new Error(data.message ?? '닉네임 확인 응답이 올바르지 않습니다.')
+    }
+    return data.data
+  } catch (error) {
+    throw normalizeAxiosError(error, '닉네임 확인에 실패했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
+
+export async function checkEmail(email: string): Promise<CheckAvailabilityResponse> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<CheckAvailabilityResponse>>(
       '/api/v1/auth/check-email',
       { params: { email } }
     )
