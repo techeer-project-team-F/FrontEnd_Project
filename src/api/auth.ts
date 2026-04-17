@@ -149,6 +149,25 @@ export async function getGoogleLoginUrl(): Promise<OAuthLoginUrlResponse> {
   }
 }
 
+export async function requestPasswordReset(email: string): Promise<void> {
+  try {
+    await apiClient.post('/api/v1/auth/password/reset-request', { email })
+  } catch (error) {
+    throw normalizeAxiosError(
+      error,
+      '비밀번호 재설정 요청에 실패했습니다. 잠시 후 다시 시도해주세요.'
+    )
+  }
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  try {
+    await apiClient.post('/api/v1/auth/password/reset', { token, newPassword })
+  } catch (error) {
+    throw normalizeAxiosError(error, '비밀번호 변경에 실패했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
+
 export async function logout(): Promise<void> {
   try {
     await apiClient.post('/api/v1/auth/logout')
