@@ -65,7 +65,10 @@ export default function SignupPage() {
             setNicknameStatus(result.available ? 'available' : 'taken')
           }
         } catch {
-          setNicknameStatus('idle')
+          const current = step2Form.getValues('nickname')
+          if (current === nickname) {
+            setNicknameStatus('idle')
+          }
         }
       }, 400)
     },
