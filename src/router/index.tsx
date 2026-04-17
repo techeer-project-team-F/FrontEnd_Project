@@ -15,7 +15,6 @@ import OnboardingPage from '@/pages/OnboardingPage'
 import AuthCallbackPage from '@/pages/AuthCallbackPage'
 import PasswordResetRequestPage from '@/pages/PasswordResetRequestPage'
 import PasswordResetPage from '@/pages/PasswordResetPage'
-import EmailVerificationPage from '@/pages/EmailVerificationPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -50,10 +49,6 @@ export const router = createBrowserRouter([
   {
     path: '/password-reset',
     element: <PasswordResetPage />,
-  },
-  {
-    path: '/verify-email',
-    element: <EmailVerificationPage />,
   },
   {
     path: '/search',
