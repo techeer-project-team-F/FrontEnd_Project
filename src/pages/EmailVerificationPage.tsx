@@ -6,7 +6,8 @@ import { useAuthStore } from '@/store/authStore'
 export default function EmailVerificationPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const email = (location.state as { email?: string })?.email ?? useAuthStore.getState().user?.email
+  const userEmail = useAuthStore(state => state.user?.email)
+  const email = (location.state as { email?: string } | null)?.email ?? userEmail
 
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [isVerifying, setIsVerifying] = useState(false)

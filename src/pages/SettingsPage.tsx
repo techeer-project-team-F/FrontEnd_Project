@@ -124,7 +124,7 @@ export default function SettingsPage() {
 
       <main className="flex-1 overflow-y-auto pb-24">
         {/* Email Verification Banner */}
-        {user && !user.emailVerified && (
+        {user?.email && !user.emailVerified && (
           <section className="px-5 pt-6">
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between rounded-2xl bg-amber-50 px-5 py-4">
