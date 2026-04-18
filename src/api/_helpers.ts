@@ -9,6 +9,10 @@ export interface ApiResponse<T> {
 }
 
 export function normalizeAxiosError(error: unknown, fallback: string): Error {
+  // AbortController에 의한 취소는 원본 그대로 전파 (호출자에서 axios.isCancel로 분기)
+  if (axios.isCancel(error) || (error instanceof DOMException && error.name === 'AbortError')) {
+    throw error
+  }
   if (axios.isAxiosError(error)) {
     const apiMessage = error.response?.data?.message
     if (apiMessage) return new Error(apiMessage)

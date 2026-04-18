@@ -22,6 +22,13 @@ const backendToFrontStatus: Record<BackendReadingStatus, ReadingStatus> = {
   STOPPED: 'stopped',
 }
 
+function toFrontStatus(s: string | null): ReadingStatus | null {
+  if (s && s in backendToFrontStatus) {
+    return backendToFrontStatus[s as BackendReadingStatus]
+  }
+  return null
+}
+
 export default function BookDetailPage() {
   const { bookId } = useParams()
   const navigate = useNavigate()
@@ -33,9 +40,10 @@ export default function BookDetailPage() {
   const [savedStatus, setSavedStatus] = useState<ReadingStatus | null>(null)
 
   const parsedBookId = bookId ? Number(bookId) : NaN
+  const isValidBookId = Number.isInteger(parsedBookId) && parsedBookId > 0
 
   useEffect(() => {
-    if (!Number.isFinite(parsedBookId)) {
+    if (!isValidBookId) {
       setIsLoading(false)
       setErrorMessage('유효하지 않은 도서 ID입니다.')
       return
@@ -49,7 +57,7 @@ export default function BookDetailPage() {
         const result = await getBook(parsedBookId, controller.signal)
         if (controller.signal.aborted) return
         setBook(result)
-        setSavedStatus(result.myLibraryStatus ? backendToFrontStatus[result.myLibraryStatus] : null)
+        setSavedStatus(toFrontStatus(result.myLibraryStatus))
       } catch (error) {
         if (axios.isCancel(error) || controller.signal.aborted) return
         setErrorMessage(error instanceof Error ? error.message : '도서 정보를 불러오지 못했습니다.')
@@ -60,14 +68,16 @@ export default function BookDetailPage() {
     })()
 
     return () => controller.abort()
-  }, [parsedBookId])
+  }, [parsedBookId, isValidBookId])
 
   if (isLoading) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <AppHeader title="BookLog" showBack />
-        <main className="flex flex-1 items-center justify-center pb-24">
-          <p className="text-sm text-muted-foreground">불러오는 중...</p>
+        <main aria-busy="true" className="flex flex-1 items-center justify-center pb-24">
+          <p role="status" className="text-sm text-muted-foreground">
+            불러오는 중...
+          </p>
         </main>
         <BottomNav />
       </div>
@@ -82,7 +92,7 @@ export default function BookDetailPage() {
           <span className="material-symbols-outlined text-6xl text-muted-foreground/30">
             search_off
           </span>
-          <p className="text-lg font-bold text-muted-foreground">
+          <p role="alert" className="text-lg font-bold text-muted-foreground">
             {errorMessage ?? '도서를 찾을 수 없습니다'}
           </p>
           <button
@@ -114,7 +124,9 @@ export default function BookDetailPage() {
         rightAction={
           <button
             type="button"
-            className="flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
+            disabled
+            aria-label="공유 (준비 중)"
+            className="flex size-10 items-center justify-center rounded-full text-primary/40"
           >
             <span className="material-symbols-outlined">share</span>
           </button>
@@ -143,7 +155,7 @@ export default function BookDetailPage() {
           <p className="mb-1 text-lg font-medium text-primary">{book.author}</p>
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <span>{book.publisher}</span>
-            {book.totalPages && (
+            {book.totalPages != null && book.totalPages > 0 && (
               <>
                 <span className="size-1 rounded-full bg-muted-foreground/30" />
                 <span>{book.totalPages} pages</span>
