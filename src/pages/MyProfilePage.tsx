@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import BottomNav from '@/components/layout/BottomNav'
 
 const yearlyBooks = [
@@ -12,12 +13,19 @@ const yearlyBooks = [
 ]
 
 export default function MyProfilePage() {
+  const navigate = useNavigate()
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="grid grid-cols-3 items-center px-4 py-3">
           <div className="flex justify-start">
-            <button className="flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10">
+            <button
+              type="button"
+              onClick={() => navigate('/settings')}
+              className="flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
+              aria-label="설정 페이지로 이동"
+            >
               <span className="material-symbols-outlined">settings</span>
             </button>
           </div>
