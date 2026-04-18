@@ -12,8 +12,55 @@ const yearlyBooks = [
   { title: '데미안', width: 'w-[82%]', bg: '#E2DBD8', text: 'text-primary' },
 ]
 
+const monthlyStats = [
+  { month: '1월', value: 2 },
+  { month: '2월', value: 3 },
+  { month: '3월', value: 3 },
+  { month: '4월', value: 5 },
+  { month: '5월', value: 4 },
+  { month: '6월', value: 6 },
+]
+
+const categoryStats = [
+  { label: '소설 60%', color: '#B9935A' },
+  { label: '에세이 25%', color: '#D3BE9E' },
+  { label: '인문 15%', color: '#EEE3D2' },
+]
+
+const publicTimeline = [
+  {
+    id: 1,
+    title: '위대한 개츠비',
+    date: '2024년 6월 15일',
+    summary: '데이지를 향한 개츠비의 맹목적인 열망은 시대를 관통하는 슬픈 낭만이다...',
+    cover:
+      'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=300&q=80',
+    coverBg: '#5E8B7E',
+  },
+  {
+    id: 2,
+    title: '호밀밭의 파수꾼',
+    date: '2024년 5월 28일',
+    summary: '홀든 코필드의 방황이 낯설지 않게 느껴지는 밤. 어른이 된다는 것은 무엇일까.',
+    cover:
+      'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=300&q=80',
+    coverBg: '#D8B08C',
+  },
+  {
+    id: 3,
+    title: '데미안',
+    date: '2024년 5월 10일',
+    summary: '새는 알을 깨고 나오기 위해 투쟁한다. 내 안의 아브락사스를 찾아서.',
+    cover:
+      'https://images.unsplash.com/photo-1526243741027-444d633d7365?auto=format&fit=crop&w=300&q=80',
+    coverBg: '#8A8075',
+  },
+]
+
 export default function MyProfilePage() {
   const navigate = useNavigate()
+
+  const maxStatValue = Math.max(...monthlyStats.map(item => item.value))
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -90,7 +137,7 @@ export default function MyProfilePage() {
         </section>
 
         {/* Yearly Reading Stack */}
-        <section className="px-6 pb-8 pt-10">
+        <section className="px-6 pt-10">
           <div className="mb-6 text-center">
             <h2 className="text-2xl font-bold text-primary/90">Your Wisdom Tower</h2>
           </div>
@@ -109,6 +156,96 @@ export default function MyProfilePage() {
                   {book.title}
                 </div>
               </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Reading Statistics */}
+        <section className="px-6 pt-10">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-[28px] font-bold tracking-tight text-foreground">나의 독서 통계</h2>
+            <button
+              type="button"
+              className="flex items-center justify-center rounded-full p-1 text-primary/50 transition-colors hover:bg-primary/10"
+              aria-label="독서 통계 상세 보기"
+            >
+              <span className="material-symbols-outlined">chevron_right</span>
+            </button>
+          </div>
+
+          <div className="rounded-[28px] bg-card px-5 pb-5 pt-5 shadow-sm">
+            <div className="h-[176px] pt-6">
+              <div className="flex h-[128px] items-end justify-between gap-3 border-b border-border/70 px-2 pb-3">
+                {monthlyStats.map(item => {
+                  const barHeight = `${(item.value / maxStatValue) * 100}%`
+
+                  return (
+                    <div
+                      key={item.month}
+                      className="flex flex-1 flex-col items-center justify-end gap-3"
+                    >
+                      <div className="flex h-[96px] items-end">
+                        <div
+                          className="relative flex w-7 items-start justify-center rounded-full bg-primary/70"
+                          style={{ height: barHeight, minHeight: '18px' }}
+                        >
+                          <span className="absolute bottom-full mb-2 text-sm font-semibold text-primary/55">
+                            {item.value}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-xs font-medium text-primary/45">{item.month}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+              {categoryStats.map(item => (
+                <div key={item.label} className="flex items-center gap-2">
+                  <span
+                    className="inline-block h-3 w-3 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-sm font-medium text-primary/65">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Public Review Timeline */}
+        <section className="px-6 pb-10 pt-10">
+          <h2 className="mb-5 text-[28px] font-bold tracking-tight text-foreground">
+            공개 감상 타임라인
+          </h2>
+
+          <div className="space-y-4">
+            {publicTimeline.map(item => (
+              <article
+                key={item.id}
+                className="flex gap-4 rounded-[28px] bg-card p-4 shadow-sm transition-transform hover:scale-[1.01]"
+              >
+                <div
+                  className="flex h-[96px] w-[76px] shrink-0 items-center justify-center rounded-[18px]"
+                  style={{ backgroundColor: item.coverBg }}
+                >
+                  <img
+                    src={item.cover}
+                    alt={`${item.title} 표지`}
+                    className="h-[78px] w-[54px] rounded-[10px] object-cover shadow-sm"
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1 pt-1">
+                  <h3 className="truncate text-xl font-bold text-foreground">{item.title}</h3>
+                  <p className="mt-1 text-sm font-medium text-primary/40">{item.date}</p>
+                  <p className="mt-3 line-clamp-2 text-base leading-6 text-foreground/65">
+                    {item.summary}
+                  </p>
+                </div>
+              </article>
             ))}
           </div>
         </section>
