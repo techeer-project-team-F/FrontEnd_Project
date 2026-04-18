@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import axios from 'axios'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
 import { searchBooks, type BookSummary } from '@/api/book'
@@ -12,7 +13,9 @@ function loadRecentKeywords(): string[] {
     const raw = localStorage.getItem(RECENT_KEYWORDS_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === 'string') : []
+    return Array.isArray(parsed)
+      ? parsed.filter((k): k is string => typeof k === 'string').slice(0, MAX_RECENT_KEYWORDS)
+      : []
   } catch {
     return []
   }
@@ -22,7 +25,7 @@ function saveRecentKeywords(keywords: string[]) {
   try {
     localStorage.setItem(RECENT_KEYWORDS_KEY, JSON.stringify(keywords))
   } catch {
-    // localStorage 쓰기 실패 시 무시 (용량 초과, private 모드 등)
+    // localStorage 쓰기 실패 시 무시 (private 모드, 용량 초과 등)
   }
 }
 
@@ -35,74 +38,120 @@ export default function BookSearchPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
 
   const trimmedQuery = searchQuery.trim()
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
 
-  // 검색어 변경 시 debounce 적용하여 API 호출
+  // observer 콜백에서 최신 state를 읽기 위한 ref (deps 폭주 방지)
+  const stateRef = useRef({
+    hasNext,
+    isLoading,
+    isLoadingMore,
+    nextCursor,
+    trimmedQuery,
+    loadMoreError,
+  })
+  stateRef.current = {
+    hasNext,
+    isLoading,
+    isLoadingMore,
+    nextCursor,
+    trimmedQuery,
+    loadMoreError,
+  }
+
+  // 검색어 debounce + AbortController로 stale 응답 방지
   useEffect(() => {
     if (!trimmedQuery) {
       setResults([])
       setNextCursor(null)
       setHasNext(false)
       setErrorMessage(null)
+      setLoadMoreError(null)
       return
     }
 
+    const controller = new AbortController()
     setIsLoading(true)
     setErrorMessage(null)
+    setLoadMoreError(null)
+
     const handle = setTimeout(async () => {
       try {
-        const response = await searchBooks(trimmedQuery)
+        const response = await searchBooks(trimmedQuery, 20, null, controller.signal)
+        if (controller.signal.aborted) return
         setResults(response.content)
         setNextCursor(response.nextCursor)
         setHasNext(response.hasNext)
       } catch (error) {
+        if (axios.isCancel(error) || controller.signal.aborted) return
         setErrorMessage(error instanceof Error ? error.message : '검색에 실패했습니다.')
         setResults([])
         setNextCursor(null)
         setHasNext(false)
       } finally {
-        setIsLoading(false)
+        if (!controller.signal.aborted) setIsLoading(false)
       }
     }, 400)
 
-    return () => clearTimeout(handle)
+    return () => {
+      clearTimeout(handle)
+      controller.abort()
+    }
   }, [trimmedQuery])
 
-  // 무한 스크롤 — IntersectionObserver로 하단 sentinel 감지
+  // 다음 페이지 로딩 (observer + 수동 retry에서 공유)
+  const fetchMore = useCallback(async () => {
+    const s = stateRef.current
+    if (s.isLoadingMore || s.isLoading || !s.hasNext) return
+    const requestedQuery = s.trimmedQuery
+    const requestedCursor = s.nextCursor
+    setIsLoadingMore(true)
+    setLoadMoreError(null)
+    try {
+      const response = await searchBooks(requestedQuery, 20, requestedCursor)
+      // stale guard: 검색어가 바뀐 경우 결과 버림
+      if (stateRef.current.trimmedQuery !== requestedQuery) return
+      setResults(prev => [...prev, ...response.content])
+      setNextCursor(response.nextCursor)
+      setHasNext(response.hasNext)
+    } catch (error) {
+      if (stateRef.current.trimmedQuery !== requestedQuery) return
+      setLoadMoreError(error instanceof Error ? error.message : '추가 로딩에 실패했습니다.')
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }, [])
+
+  // IntersectionObserver는 단 한 번만 생성, 최신값은 ref로 읽기
   useEffect(() => {
-    if (!hasNext || !loadMoreRef.current) return
     const sentinel = loadMoreRef.current
+    if (!sentinel) return
 
     const observer = new IntersectionObserver(
-      async entries => {
-        const [entry] = entries
-        if (!entry.isIntersecting || isLoadingMore || isLoading || !hasNext) return
-
-        setIsLoadingMore(true)
-        try {
-          const response = await searchBooks(trimmedQuery, 20, nextCursor)
-          setResults(prev => [...prev, ...response.content])
-          setNextCursor(response.nextCursor)
-          setHasNext(response.hasNext)
-        } catch (error) {
-          setErrorMessage(error instanceof Error ? error.message : '추가 로딩에 실패했습니다.')
-        } finally {
-          setIsLoadingMore(false)
-        }
+      entries => {
+        if (!entries[0].isIntersecting) return
+        if (stateRef.current.loadMoreError) return
+        fetchMore()
       },
       { rootMargin: '200px' }
     )
 
     observer.observe(sentinel)
-    return () => observer.unobserve(sentinel)
-  }, [hasNext, isLoadingMore, isLoading, nextCursor, trimmedQuery])
+    return () => observer.disconnect()
+  }, [fetchMore])
+
+  const retryLoadMore = () => {
+    setLoadMoreError(null)
+    fetchMore()
+  }
 
   const commitKeyword = (keyword: string) => {
     const value = keyword.trim()
     if (!value) return
     setRecentKeywords(prev => {
+      if (prev[0] === value) return prev
       const next = [value, ...prev.filter(k => k !== value)].slice(0, MAX_RECENT_KEYWORDS)
       saveRecentKeywords(next)
       return next
@@ -138,22 +187,32 @@ export default function BookSearchPage() {
       <AppHeader title="BookLog" showBack />
 
       {/* Search Bar */}
-      <div className="border-b border-border px-4 py-3">
+      <div className="border-b border-border px-4 py-3" role="search">
+        <label htmlFor="book-search-input" className="sr-only">
+          도서 검색
+        </label>
         <div className="flex h-12 w-full items-stretch rounded-xl border border-primary/10 bg-primary/5">
           <div className="flex items-center justify-center pl-4 text-primary/60">
             <span className="material-symbols-outlined text-[22px]">search</span>
           </div>
           <input
+            id="book-search-input"
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
+            aria-label="도서 제목, 저자, ISBN 검색"
             placeholder="도서 제목, 저자, ISBN 검색"
             className="h-full min-w-0 flex-1 border-none bg-transparent px-3 text-base font-normal outline-none placeholder:text-primary/40 focus:ring-0"
           />
-          <div className="flex cursor-pointer items-center justify-center pr-4 text-primary">
+          <button
+            type="button"
+            disabled
+            aria-label="바코드 스캔 (준비 중)"
+            className="flex items-center justify-center pr-4 text-primary/40"
+          >
             <span className="material-symbols-outlined text-[24px]">barcode_scanner</span>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -185,7 +244,11 @@ export default function BookSearchPage() {
                 >
                   {keyword}
                 </button>
-                <button type="button" onClick={() => removeKeyword(keyword)}>
+                <button
+                  type="button"
+                  onClick={() => removeKeyword(keyword)}
+                  aria-label={`'${keyword}' 최근 검색어 삭제`}
+                >
                   <span className="material-symbols-outlined cursor-pointer text-[16px] text-primary/60">
                     close
                   </span>
@@ -213,7 +276,7 @@ export default function BookSearchPage() {
             <span className="material-symbols-outlined text-5xl text-muted-foreground/30">
               search_off
             </span>
-            <p className="text-sm text-muted-foreground">
+            <p className="max-w-full truncate text-sm text-muted-foreground">
               '{trimmedQuery}'에 대한 검색 결과가 없습니다.
             </p>
           </div>
@@ -265,7 +328,22 @@ export default function BookSearchPage() {
               <p className="py-4 text-center text-xs text-muted-foreground">더 불러오는 중...</p>
             )}
 
-            {!hasNext && !isLoadingMore && (
+            {loadMoreError && !isLoadingMore && (
+              <div className="flex flex-col items-center gap-2 py-4">
+                <p role="alert" className="text-sm text-destructive">
+                  {loadMoreError}
+                </p>
+                <button
+                  type="button"
+                  onClick={retryLoadMore}
+                  className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20"
+                >
+                  다시 불러오기
+                </button>
+              </div>
+            )}
+
+            {!hasNext && !isLoadingMore && !loadMoreError && (
               <p className="py-4 text-center text-xs text-muted-foreground/50">
                 모든 결과를 확인했습니다
               </p>

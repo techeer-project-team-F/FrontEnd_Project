@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from './client'
+import { ApiResponse, normalizeAxiosError } from './_helpers'
 
 export interface BookSummary {
   bookId: number
@@ -19,33 +19,11 @@ export interface BookSearchListResponse {
   size: number
 }
 
-interface ApiResponse<T> {
-  status: 'SUCCESS' | 'ERROR'
-  code: number
-  message?: string
-  data?: T
-  errors?: Array<{ field: string; message: string }>
-}
-
-function normalizeAxiosError(error: unknown, fallback: string): Error {
-  if (axios.isAxiosError(error)) {
-    const apiMessage = error.response?.data?.message
-    if (apiMessage) return new Error(apiMessage)
-    if (error.code === 'ECONNABORTED') {
-      return new Error('요청 시간이 초과되었습니다. 다시 시도해주세요.')
-    }
-    if (!error.response) {
-      return new Error('서버에 연결할 수 없습니다. 백엔드 서버 상태를 확인해주세요.')
-    }
-    return new Error(fallback)
-  }
-  return error instanceof Error ? error : new Error(fallback)
-}
-
 export async function searchBooks(
   query: string,
   limit = 20,
-  cursor?: number | null
+  cursor?: number | null,
+  signal?: AbortSignal
 ): Promise<BookSearchListResponse> {
   try {
     const { data } = await apiClient.get<ApiResponse<BookSearchListResponse>>(
@@ -56,6 +34,7 @@ export async function searchBooks(
           limit,
           ...(cursor != null ? { cursor } : {}),
         },
+        signal,
       }
     )
     if (!data.data) {
