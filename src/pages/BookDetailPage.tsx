@@ -197,6 +197,7 @@ export default function BookDetailPage() {
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
+            aria-label={savedStatus ? '내 서재 상태 수정' : '내 서재에 추가'}
             className="w-full rounded-xl bg-primary py-4 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform active:scale-[0.98]"
           >
             {savedStatus ? `${statusEmoji[savedStatus]} ✏️` : '내 서재에 추가'}

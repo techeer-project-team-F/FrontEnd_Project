@@ -8,8 +8,12 @@ export interface ApiResponse<T> {
   errors?: Array<{ field: string; message: string }>
 }
 
+/**
+ * Axios 에러를 한국어 메시지의 일반 Error로 정규화한다.
+ * 취소 에러(CanceledError / AbortError)는 원본 그대로 rethrow하여
+ * 호출자가 `axios.isCancel`로 분기할 수 있게 한다.
+ */
 export function normalizeAxiosError(error: unknown, fallback: string): Error {
-  // AbortController에 의한 취소는 원본 그대로 전파 (호출자에서 axios.isCancel로 분기)
   if (axios.isCancel(error) || (error instanceof DOMException && error.name === 'AbortError')) {
     throw error
   }
