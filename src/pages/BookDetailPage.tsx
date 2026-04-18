@@ -16,7 +16,7 @@ const statusEmoji: Record<ReadingStatus, string> = {
 }
 
 export default function BookDetailPage() {
-  const { id } = useParams()
+  const { bookId: id } = useParams()
   const navigate = useNavigate()
   const scrollRef = useDragScroll<HTMLDivElement>()
   const [sheetOpen, setSheetOpen] = useState(false)

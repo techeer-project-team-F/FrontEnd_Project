@@ -13,7 +13,7 @@ const sortOptions = [
 ]
 
 export default function BookReviewsListPage() {
-  const { id } = useParams()
+  const { bookId: id } = useParams()
   const navigate = useNavigate()
   const [activeSort, setActiveSort] = useState('latest')
   const [revealedSpoilers, setRevealedSpoilers] = useState<Set<number>>(new Set())

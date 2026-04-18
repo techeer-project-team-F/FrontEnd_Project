@@ -59,7 +59,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: '/book/:id',
+    path: '/book/:bookId',
     element: (
       <ProtectedRoute>
         <BookDetailPage />
@@ -67,7 +67,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: '/book/:id/reviews',
+    path: '/book/:bookId/reviews',
     element: (
       <ProtectedRoute>
         <BookReviewsListPage />
