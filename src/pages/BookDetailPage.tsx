@@ -158,7 +158,7 @@ export default function BookDetailPage() {
             {book.totalPages != null && book.totalPages > 0 && (
               <>
                 <span className="size-1 rounded-full bg-muted-foreground/30" />
-                <span>{book.totalPages} pages</span>
+                <span>{book.totalPages}쪽</span>
               </>
             )}
           </div>
