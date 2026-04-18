@@ -42,6 +42,7 @@ export default function BookSearchPage() {
 
   const trimmedQuery = searchQuery.trim()
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const moreControllerRef = useRef<AbortController | null>(null)
 
   // observer 콜백에서 최신 state를 읽기 위한 ref (deps 폭주 방지)
   const stateRef = useRef({
@@ -63,19 +64,22 @@ export default function BookSearchPage() {
 
   // 검색어 debounce + AbortController로 stale 응답 방지
   useEffect(() => {
+    // 검색어가 바뀌면 in-flight 상태를 전부 초기화 (MEDIUM 1: 깜빡임 방지)
+    setIsLoadingMore(false)
+    setLoadMoreError(null)
+    moreControllerRef.current?.abort()
+
     if (!trimmedQuery) {
       setResults([])
       setNextCursor(null)
       setHasNext(false)
       setErrorMessage(null)
-      setLoadMoreError(null)
       return
     }
 
     const controller = new AbortController()
     setIsLoading(true)
     setErrorMessage(null)
-    setLoadMoreError(null)
 
     const handle = setTimeout(async () => {
       try {
@@ -98,6 +102,7 @@ export default function BookSearchPage() {
     return () => {
       clearTimeout(handle)
       controller.abort()
+      moreControllerRef.current?.abort()
     }
   }, [trimmedQuery])
 
@@ -107,24 +112,33 @@ export default function BookSearchPage() {
     if (s.isLoadingMore || s.isLoading || !s.hasNext) return
     const requestedQuery = s.trimmedQuery
     const requestedCursor = s.nextCursor
+
+    // 이전 pagination 요청 취소 후 새 controller 생성
+    moreControllerRef.current?.abort()
+    const controller = new AbortController()
+    moreControllerRef.current = controller
+
     setIsLoadingMore(true)
     setLoadMoreError(null)
     try {
-      const response = await searchBooks(requestedQuery, 20, requestedCursor)
+      const response = await searchBooks(requestedQuery, 20, requestedCursor, controller.signal)
+      if (controller.signal.aborted) return
       // stale guard: 검색어가 바뀐 경우 결과 버림
       if (stateRef.current.trimmedQuery !== requestedQuery) return
       setResults(prev => [...prev, ...response.content])
       setNextCursor(response.nextCursor)
       setHasNext(response.hasNext)
     } catch (error) {
+      if (axios.isCancel(error) || controller.signal.aborted) return
       if (stateRef.current.trimmedQuery !== requestedQuery) return
       setLoadMoreError(error instanceof Error ? error.message : '추가 로딩에 실패했습니다.')
     } finally {
-      setIsLoadingMore(false)
+      if (!controller.signal.aborted) setIsLoadingMore(false)
     }
   }, [])
 
-  // IntersectionObserver는 단 한 번만 생성, 최신값은 ref로 읽기
+  // IntersectionObserver — sentinel이 조건부 렌더되므로 hasResults 변화 시 재생성
+  const hasResults = results.length > 0
   useEffect(() => {
     const sentinel = loadMoreRef.current
     if (!sentinel) return
@@ -140,7 +154,7 @@ export default function BookSearchPage() {
 
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [fetchMore])
+  }, [fetchMore, hasResults])
 
   const retryLoadMore = () => {
     setLoadMoreError(null)
