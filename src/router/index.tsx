@@ -17,6 +17,7 @@ import PasswordResetRequestPage from '@/pages/PasswordResetRequestPage'
 import PasswordResetPage from '@/pages/PasswordResetPage'
 import EmailVerificationPage from '@/pages/EmailVerificationPage'
 import PasswordChangePage from '@/pages/PasswordChangePage'
+import WithdrawPage from '@/pages/WithdrawPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -141,6 +142,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <PasswordChangePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/settings/withdraw',
+    element: (
+      <ProtectedRoute>
+        <WithdrawPage />
       </ProtectedRoute>
     ),
   },

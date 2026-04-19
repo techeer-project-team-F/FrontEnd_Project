@@ -260,7 +260,8 @@ export default function SettingsPage() {
           <div className="text-center">
             <button
               type="button"
-              className="text-base font-medium text-destructive/70 underline underline-offset-4"
+              onClick={() => navigate('/settings/withdraw')}
+              className="text-base font-medium text-destructive/70 underline underline-offset-4 transition-colors hover:text-destructive"
             >
               회원 탈퇴
             </button>
