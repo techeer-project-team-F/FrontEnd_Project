@@ -83,16 +83,18 @@ export default function MyProfilePage() {
         if (controller.signal.aborted) return
         setProfile(result)
 
-        // authStore의 emailVerified / onboardingCompleted 최신화
+        // getState()로 읽는 이유: 이 컴포넌트가 authStore를 구독하지 않게 하여
+        // setAuth 호출이 리렌더 → useEffect 재실행 무한 루프를 방지한다.
         const state = useAuthStore.getState()
         if (state.user && state.accessToken) {
           state.setAuth(
             {
               ...state.user,
+              id: result.userId,
               nickname: result.nickname,
               email: result.email,
               profileImageUrl: result.profileImageUrl ?? undefined,
-              bio: result.bio,
+              bio: result.bio ?? undefined,
               emailVerified: result.emailVerified,
               onboardingCompleted: result.onboardingCompleted,
             },
@@ -232,6 +234,7 @@ export default function MyProfilePage() {
             </p>
           )}
 
+          {/* TODO(M6): 팔로워/팔로잉 목록 페이지 연동 시 onClick 추가 (현재는 숫자만 표시) */}
           <div className="mt-6 flex items-center justify-center gap-4 text-base font-medium text-primary/80">
             <button type="button" className="hover:underline">
               팔로워 {profile.followerCount}
