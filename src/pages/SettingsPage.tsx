@@ -5,10 +5,21 @@ import BottomNav from '@/components/layout/BottomNav'
 import { logout, resendEmailCode } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+function Toggle({
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean
+  onChange: () => void
+  ariaLabel: string
+}) {
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
       onClick={onChange}
       className={`relative h-8 w-14 rounded-full transition-colors ${
         checked ? 'bg-primary' : 'bg-primary/10'
@@ -162,12 +173,22 @@ export default function SettingsPage() {
           <div className="overflow-hidden rounded-[28px] bg-card shadow-sm">
             <SettingRow
               title="좋아요"
-              right={<Toggle checked={likeAlert} onChange={() => setLikeAlert(prev => !prev)} />}
+              right={
+                <Toggle
+                  checked={likeAlert}
+                  onChange={() => setLikeAlert(prev => !prev)}
+                  ariaLabel="좋아요 알림"
+                />
+              }
             />
             <SettingRow
               title="댓글"
               right={
-                <Toggle checked={commentAlert} onChange={() => setCommentAlert(prev => !prev)} />
+                <Toggle
+                  checked={commentAlert}
+                  onChange={() => setCommentAlert(prev => !prev)}
+                  ariaLabel="댓글 알림"
+                />
               }
             />
             <SettingRow
@@ -176,6 +197,7 @@ export default function SettingsPage() {
                 <Toggle
                   checked={newFollowerAlert}
                   onChange={() => setNewFollowerAlert(prev => !prev)}
+                  ariaLabel="새 팔로워 알림"
                 />
               }
             />
@@ -186,6 +208,7 @@ export default function SettingsPage() {
                 <Toggle
                   checked={followingReviewAlert}
                   onChange={() => setFollowingReviewAlert(prev => !prev)}
+                  ariaLabel="팔로잉 새 감상 알림"
                 />
               }
             />
@@ -201,7 +224,11 @@ export default function SettingsPage() {
               description="다른 사용자가 내 서재를 방문할 수 있습니다."
               noBorder
               right={
-                <Toggle checked={libraryPublic} onChange={() => setLibraryPublic(prev => !prev)} />
+                <Toggle
+                  checked={libraryPublic}
+                  onChange={() => setLibraryPublic(prev => !prev)}
+                  ariaLabel="서재 공개"
+                />
               }
             />
           </div>
