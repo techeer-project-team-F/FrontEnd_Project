@@ -5,6 +5,86 @@ import BottomNav from '@/components/layout/BottomNav'
 import { logout, resendEmailCode } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 
+function Toggle({
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean
+  onChange: () => void
+  ariaLabel: string
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={onChange}
+      className={`relative h-8 w-14 rounded-full transition-colors ${
+        checked ? 'bg-primary' : 'bg-primary/10'
+      }`}
+    >
+      <span
+        className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-background shadow-sm transition-transform ${
+          checked ? 'translate-x-6' : 'translate-x-0'
+        }`}
+      />
+    </button>
+  )
+}
+
+interface SettingRowProps {
+  title: string
+  description?: string
+  right?: React.ReactNode
+  noBorder?: boolean
+}
+
+function SettingRow({ title, description, right, noBorder = false }: SettingRowProps) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-4 px-5 py-5 ${
+        noBorder ? '' : 'border-b border-border'
+      }`}
+    >
+      <div className="min-w-0">
+        <p className="text-[18px] font-medium leading-tight text-foreground">{title}</p>
+        {description && <p className="mt-2 text-sm text-muted-foreground">{description}</p>}
+      </div>
+      {right}
+    </div>
+  )
+}
+
+interface LinkRowProps {
+  title: string
+  description?: string
+  onClick?: () => void
+  noBorder?: boolean
+}
+
+function LinkRow({ title, description, onClick, noBorder = false }: LinkRowProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={`flex w-full items-center justify-between gap-4 px-5 py-5 text-left transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:hover:bg-transparent ${
+        noBorder ? '' : 'border-b border-border'
+      }`}
+    >
+      <div className="min-w-0">
+        <p className="text-[18px] font-medium leading-tight text-foreground">{title}</p>
+        {description && <p className="mt-2 text-sm text-primary/80">{description}</p>}
+      </div>
+      <span className="material-symbols-outlined text-[24px] text-muted-foreground">
+        chevron_right
+      </span>
+    </button>
+  )
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate()
   const clearAuth = useAuthStore(state => state.clearAuth)
@@ -51,71 +131,6 @@ export default function SettingsPage() {
   const [followingReviewAlert, setFollowingReviewAlert] = useState(false)
   const [libraryPublic, setLibraryPublic] = useState(true)
 
-  const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
-    <button
-      type="button"
-      onClick={onChange}
-      className={`relative h-8 w-14 rounded-full transition-colors ${
-        checked ? 'bg-primary' : 'bg-primary/10'
-      }`}
-    >
-      <span
-        className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-background shadow-sm transition-transform ${
-          checked ? 'translate-x-6' : 'translate-x-0'
-        }`}
-      />
-    </button>
-  )
-
-  const SettingRow = ({
-    title,
-    description,
-    right,
-    noBorder = false,
-  }: {
-    title: string
-    description?: string
-    right?: React.ReactNode
-    noBorder?: boolean
-  }) => (
-    <div
-      className={`flex items-center justify-between gap-4 px-5 py-5 ${
-        noBorder ? '' : 'border-b border-border'
-      }`}
-    >
-      <div className="min-w-0">
-        <p className="text-[18px] font-medium leading-tight text-foreground">{title}</p>
-        {description && <p className="mt-2 text-sm text-muted-foreground">{description}</p>}
-      </div>
-      {right}
-    </div>
-  )
-
-  const LinkRow = ({
-    title,
-    description,
-    noBorder = false,
-  }: {
-    title: string
-    description?: string
-    noBorder?: boolean
-  }) => (
-    <button
-      type="button"
-      className={`flex w-full items-center justify-between gap-4 px-5 py-5 text-left transition-colors hover:bg-primary/5 ${
-        noBorder ? '' : 'border-b border-border'
-      }`}
-    >
-      <div className="min-w-0">
-        <p className="text-[18px] font-medium leading-tight text-foreground">{title}</p>
-        {description && <p className="mt-2 text-sm text-primary/80">{description}</p>}
-      </div>
-      <span className="material-symbols-outlined text-[24px] text-muted-foreground">
-        chevron_right
-      </span>
-    </button>
-  )
-
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <AppHeader title="설정" showBack />
@@ -158,12 +173,22 @@ export default function SettingsPage() {
           <div className="overflow-hidden rounded-[28px] bg-card shadow-sm">
             <SettingRow
               title="좋아요"
-              right={<Toggle checked={likeAlert} onChange={() => setLikeAlert(prev => !prev)} />}
+              right={
+                <Toggle
+                  checked={likeAlert}
+                  onChange={() => setLikeAlert(prev => !prev)}
+                  ariaLabel="좋아요 알림"
+                />
+              }
             />
             <SettingRow
               title="댓글"
               right={
-                <Toggle checked={commentAlert} onChange={() => setCommentAlert(prev => !prev)} />
+                <Toggle
+                  checked={commentAlert}
+                  onChange={() => setCommentAlert(prev => !prev)}
+                  ariaLabel="댓글 알림"
+                />
               }
             />
             <SettingRow
@@ -172,6 +197,7 @@ export default function SettingsPage() {
                 <Toggle
                   checked={newFollowerAlert}
                   onChange={() => setNewFollowerAlert(prev => !prev)}
+                  ariaLabel="새 팔로워 알림"
                 />
               }
             />
@@ -182,6 +208,7 @@ export default function SettingsPage() {
                 <Toggle
                   checked={followingReviewAlert}
                   onChange={() => setFollowingReviewAlert(prev => !prev)}
+                  ariaLabel="팔로잉 새 감상 알림"
                 />
               }
             />
@@ -197,7 +224,11 @@ export default function SettingsPage() {
               description="다른 사용자가 내 서재를 방문할 수 있습니다."
               noBorder
               right={
-                <Toggle checked={libraryPublic} onChange={() => setLibraryPublic(prev => !prev)} />
+                <Toggle
+                  checked={libraryPublic}
+                  onChange={() => setLibraryPublic(prev => !prev)}
+                  ariaLabel="서재 공개"
+                />
               }
             />
           </div>
@@ -207,8 +238,8 @@ export default function SettingsPage() {
         <section className="px-5 pt-8">
           <h2 className="mb-3 text-lg font-bold text-primary/80">계정 관리</h2>
           <div className="overflow-hidden rounded-[28px] bg-card shadow-sm">
-            <LinkRow title="비밀번호 변경" />
-            <LinkRow title="연동 소셜 계정" description="Google 연동 중" noBorder />
+            <LinkRow title="비밀번호 변경" onClick={() => navigate('/settings/password')} />
+            <SettingRow title="연동 소셜 계정" description="Google 연동 중" noBorder />
           </div>
         </section>
 

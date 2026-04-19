@@ -28,3 +28,11 @@ export async function getMyProfile(signal?: AbortSignal): Promise<MyProfile> {
     throw normalizeAxiosError(error, '프로필을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
   }
 }
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  try {
+    await apiClient.put('/api/v1/users/me/password', { currentPassword, newPassword })
+  } catch (error) {
+    throw normalizeAxiosError(error, '비밀번호 변경에 실패했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
