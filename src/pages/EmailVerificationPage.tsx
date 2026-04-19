@@ -53,17 +53,20 @@ export default function EmailVerificationPage() {
     }
   }
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = (startIndex: number, e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault()
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    const pasted = e.clipboardData
+      .getData('text')
+      .replace(/\D/g, '')
+      .slice(0, 6 - startIndex)
     if (!pasted) return
     setErrorMessage(null)
     const newCode = [...code]
-    for (let i = 0; i < 6; i++) {
-      newCode[i] = pasted[i] ?? ''
+    for (let i = 0; i < pasted.length && startIndex + i < 6; i++) {
+      newCode[startIndex + i] = pasted[i]
     }
     setCode(newCode)
-    const focusIndex = Math.min(pasted.length, 5)
+    const focusIndex = Math.min(startIndex + pasted.length, 5)
     inputRefs.current[focusIndex]?.focus()
   }
 
@@ -147,7 +150,7 @@ export default function EmailVerificationPage() {
               value={digit}
               onChange={e => handleChange(index, e.target.value)}
               onKeyDown={e => handleKeyDown(index, e)}
-              onPaste={index === 0 ? handlePaste : undefined}
+              onPaste={e => handlePaste(index, e)}
               className="h-14 w-11 rounded-xl border border-primary/20 bg-card text-center text-xl font-bold shadow-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
               aria-label={`인증 코드 ${index + 1}번째 자리`}
             />
