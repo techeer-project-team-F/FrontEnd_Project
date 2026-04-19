@@ -7,51 +7,60 @@ import AppHeader from '@/components/layout/AppHeader'
 import { changePassword } from '@/api/member'
 import { PASSWORD_HINT, PASSWORD_REGEX } from '@/constants/validation'
 
+const PASSWORD_MAX_LENGTH = 64
+
 const schema = z
   .object({
-    currentPassword: z.string().min(1, '현재 비밀번호를 입력해주세요'),
+    currentPassword: z.string().min(1, '현재 비밀번호를 입력해주세요').max(PASSWORD_MAX_LENGTH),
     newPassword: z
       .string()
       .min(8, '비밀번호는 8자 이상이어야 합니다')
+      .max(PASSWORD_MAX_LENGTH, `비밀번호는 ${PASSWORD_MAX_LENGTH}자 이하여야 합니다`)
       .regex(PASSWORD_REGEX, '영문, 숫자, 특수문자를 모두 포함해야 합니다'),
-    confirmPassword: z.string(),
+    confirmPassword: z.string().max(PASSWORD_MAX_LENGTH),
   })
-  .refine(data => data.newPassword === data.confirmPassword, {
-    message: '새 비밀번호가 일치하지 않습니다',
-    path: ['confirmPassword'],
-  })
-  .refine(data => data.currentPassword !== data.newPassword, {
-    message: '현재 비밀번호와 다른 비밀번호를 입력해주세요',
-    path: ['newPassword'],
+  .superRefine((data, ctx) => {
+    if (data.newPassword !== data.confirmPassword) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['confirmPassword'],
+        message: '새 비밀번호가 일치하지 않습니다',
+      })
+    }
+    if (data.currentPassword && data.currentPassword === data.newPassword) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['newPassword'],
+        message: '현재 비밀번호와 다른 비밀번호를 입력해주세요',
+      })
+    }
   })
 
 type FormData = z.infer<typeof schema>
 
 export default function PasswordChangePage() {
   const navigate = useNavigate()
-  const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState(false)
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    reset,
+    formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
   const onSubmit = async (data: FormData) => {
-    if (isLoading) return
-    setIsLoading(true)
+    if (isSubmitting) return
     setErrorMessage(null)
     try {
       await changePassword(data.currentPassword, data.newPassword)
+      reset()
       setIsSuccess(true)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '비밀번호 변경에 실패했습니다.')
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -61,7 +70,11 @@ export default function PasswordChangePage() {
 
       <main className="flex flex-1 flex-col px-6 pt-12">
         {isSuccess ? (
-          <div className="flex flex-col items-center gap-4 pt-16 text-center">
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex flex-col items-center gap-4 pt-16 text-center"
+          >
             <span className="material-symbols-outlined text-5xl text-primary">check_circle</span>
             <h2 className="text-2xl font-bold text-foreground">비밀번호가 변경되었습니다</h2>
             <p className="text-base text-muted-foreground">
@@ -92,6 +105,7 @@ export default function PasswordChangePage() {
                   {...register('currentPassword')}
                   type="password"
                   autoComplete="current-password"
+                  maxLength={PASSWORD_MAX_LENGTH}
                   placeholder="현재 비밀번호를 입력해주세요"
                   className="w-full rounded-xl border-none bg-card px-5 py-4 shadow-sm transition-all placeholder:text-muted-foreground/40 focus:ring-2 focus:ring-primary/20"
                 />
@@ -111,6 +125,7 @@ export default function PasswordChangePage() {
                   {...register('newPassword')}
                   type="password"
                   autoComplete="new-password"
+                  maxLength={PASSWORD_MAX_LENGTH}
                   placeholder="8자 이상 입력해주세요"
                   aria-describedby="password-hint"
                   className="w-full rounded-xl border-none bg-card px-5 py-4 shadow-sm transition-all placeholder:text-muted-foreground/40 focus:ring-2 focus:ring-primary/20"
@@ -131,6 +146,7 @@ export default function PasswordChangePage() {
                   {...register('confirmPassword')}
                   type="password"
                   autoComplete="new-password"
+                  maxLength={PASSWORD_MAX_LENGTH}
                   placeholder="비밀번호를 다시 입력해주세요"
                   className="w-full rounded-xl border-none bg-card px-5 py-4 shadow-sm transition-all placeholder:text-muted-foreground/40 focus:ring-2 focus:ring-primary/20"
                 />
@@ -148,6 +164,7 @@ export default function PasswordChangePage() {
               {errorMessage && (
                 <p
                   role="alert"
+                  aria-atomic="true"
                   className="rounded-lg bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
                 >
                   {errorMessage}
@@ -156,10 +173,10 @@ export default function PasswordChangePage() {
 
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isSubmitting}
                 className="mt-4 w-full rounded-xl bg-primary py-4 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isLoading ? '변경 중...' : '비밀번호 변경'}
+                {isSubmitting ? '변경 중...' : '비밀번호 변경'}
               </button>
             </form>
           </>
