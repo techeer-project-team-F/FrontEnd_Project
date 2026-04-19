@@ -1,6 +1,11 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
 import BottomNav from '@/components/layout/BottomNav'
+import { getMyProfile, type MyProfile } from '@/api/member'
+import { useAuthStore } from '@/store/authStore'
 
+// TODO(M1 후속): Library 통계 API 연동 시 교체 (Wisdom Tower, 연간 독서 스택)
 const yearlyBooks = [
   { title: '어린 왕자', width: 'w-[92%]', bg: '#2B2626', text: 'text-white' },
   { title: '모비 딕', width: 'w-[88%]', bg: '#314244', text: 'text-white' },
@@ -12,6 +17,7 @@ const yearlyBooks = [
   { title: '데미안', width: 'w-[82%]', bg: '#E2DBD8', text: 'text-primary' },
 ]
 
+// TODO(M1 후속): 통계 전용 API 연동 시 교체 (월별 독서량)
 const monthlyStats = [
   { month: '1월', value: 2 },
   { month: '2월', value: 3 },
@@ -21,12 +27,14 @@ const monthlyStats = [
   { month: '6월', value: 6 },
 ]
 
+// TODO(M1 후속): 통계 전용 API 연동 시 교체 (카테고리 분포)
 const categoryStats = [
   { label: '소설 60%', color: '#B9935A' },
   { label: '에세이 25%', color: '#D3BE9E' },
   { label: '인문 15%', color: '#EEE3D2' },
 ]
 
+// TODO(M1 후속): Review 목록 API 연동 시 교체 (공개 감상 타임라인)
 const publicTimeline = [
   {
     id: 1,
@@ -59,8 +67,102 @@ const publicTimeline = [
 
 export default function MyProfilePage() {
   const navigate = useNavigate()
+  const [profile, setProfile] = useState<MyProfile | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const maxStatValue = Math.max(...monthlyStats.map(item => item.value))
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setIsLoading(true)
+    setErrorMessage(null)
+    ;(async () => {
+      try {
+        const result = await getMyProfile(controller.signal)
+        if (controller.signal.aborted) return
+        setProfile(result)
+
+        // getState()로 읽는 이유: 이 컴포넌트가 authStore를 구독하지 않게 하여
+        // setAuth 호출이 리렌더 → useEffect 재실행 무한 루프를 방지한다.
+        const state = useAuthStore.getState()
+        if (state.user && state.accessToken) {
+          state.setAuth(
+            {
+              ...state.user,
+              id: result.userId,
+              nickname: result.nickname,
+              email: result.email,
+              profileImageUrl: result.profileImageUrl ?? undefined,
+              bio: result.bio ?? undefined,
+              emailVerified: result.emailVerified,
+              onboardingCompleted: result.onboardingCompleted,
+            },
+            state.accessToken
+          )
+        }
+      } catch (error) {
+        if (axios.isCancel(error) || controller.signal.aborted) return
+        setErrorMessage(error instanceof Error ? error.message : '프로필을 불러오지 못했습니다.')
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false)
+      }
+    })()
+
+    return () => controller.abort()
+  }, [])
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
+          <div className="grid grid-cols-3 items-center px-4 py-3">
+            <div />
+            <div className="flex justify-center">
+              <h1 className="text-2xl font-bold tracking-tight text-primary">BookLog</h1>
+            </div>
+            <div />
+          </div>
+        </header>
+        <main aria-busy="true" className="flex flex-1 items-center justify-center pb-24">
+          <p role="status" className="text-sm text-muted-foreground">
+            불러오는 중...
+          </p>
+        </main>
+        <BottomNav />
+      </div>
+    )
+  }
+
+  if (errorMessage || !profile) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
+          <div className="grid grid-cols-3 items-center px-4 py-3">
+            <div />
+            <div className="flex justify-center">
+              <h1 className="text-2xl font-bold tracking-tight text-primary">BookLog</h1>
+            </div>
+            <div />
+          </div>
+        </header>
+        <main className="flex flex-1 flex-col items-center justify-center gap-4 pb-24">
+          <span className="material-symbols-outlined text-6xl text-muted-foreground/30">error</span>
+          <p role="alert" className="text-lg font-bold text-muted-foreground">
+            {errorMessage ?? '프로필을 불러올 수 없습니다.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground"
+          >
+            돌아가기
+          </button>
+        </main>
+        <BottomNav />
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -82,7 +184,12 @@ export default function MyProfilePage() {
           </div>
 
           <div className="flex justify-end">
-            <button className="flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10">
+            <button
+              type="button"
+              disabled
+              aria-label="공유 (준비 중)"
+              className="flex size-10 items-center justify-center rounded-full text-primary/40"
+            >
               <span className="material-symbols-outlined">share</span>
             </button>
           </div>
@@ -93,37 +200,62 @@ export default function MyProfilePage() {
         {/* Profile Intro */}
         <section className="px-6 pt-8 text-center">
           <div className="relative mx-auto mb-5 flex h-36 w-36 items-center justify-center rounded-full bg-primary/10">
-            <img
-              src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=600&q=80"
-              alt="프로필 이미지"
-              className="h-32 w-32 rounded-full object-cover"
-            />
+            {profile.profileImageUrl ? (
+              <img
+                src={profile.profileImageUrl}
+                alt={`${profile.nickname} 프로필 이미지`}
+                className="h-32 w-32 rounded-full object-cover"
+              />
+            ) : (
+              <span className="material-symbols-outlined text-6xl text-muted-foreground/40">
+                person
+              </span>
+            )}
 
-            <button className="absolute bottom-1 right-1 flex h-10 w-10 items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground shadow-sm">
+            {/* TODO(M2): 프로필 수정 페이지 연동 시 onClick 추가 */}
+            <button
+              type="button"
+              disabled
+              aria-label="프로필 편집 (준비 중)"
+              className="absolute bottom-1 right-1 flex h-10 w-10 items-center justify-center rounded-full border-4 border-background bg-primary/60 text-primary-foreground shadow-sm"
+            >
               <span className="material-symbols-outlined text-[18px]">edit</span>
             </button>
           </div>
 
-          <h1 className="text-3xl font-bold tracking-tight">책벌레지니</h1>
-          <p className="mx-auto mt-3 max-w-[320px] text-base leading-7 text-primary/80">
-            "좋은 책은 마음을 풍요롭게 합니다. 고전 문학을 즐겨 읽어요."
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{profile.nickname}</h1>
+          {profile.bio ? (
+            <p className="mx-auto mt-3 max-w-[320px] whitespace-pre-wrap text-base leading-7 text-primary/80">
+              {profile.bio}
+            </p>
+          ) : (
+            <p className="mx-auto mt-3 max-w-[320px] text-base leading-7 text-primary/40">
+              소개글을 작성해보세요.
+            </p>
+          )}
 
+          {/* TODO(M6): 팔로워/팔로잉 목록 페이지 연동 시 disabled/aria-disabled 제거 + hover 클래스 복원 + onClick 추가 */}
           <div className="mt-6 flex items-center justify-center gap-4 text-base font-medium text-primary/80">
-            <button className="hover:underline">팔로워 128</button>
+            <button type="button" disabled aria-disabled="true">
+              팔로워 {profile.followerCount}
+            </button>
             <span className="text-primary/30">|</span>
-            <button className="hover:underline">팔로잉 56</button>
+            <button type="button" disabled aria-disabled="true">
+              팔로잉 {profile.followingCount}
+            </button>
           </div>
         </section>
 
         {/* Stats */}
         <section className="px-6 pt-8">
           <div className="grid grid-cols-3 gap-3">
+            {/* TODO(M1 후속): Library 통계 API 연동 시 실제 데이터로 교체 */}
             <div className="rounded-[24px] bg-card px-3 py-5 text-center shadow-sm">
               <p className="text-xs font-semibold text-primary/60">올해 읽은 책</p>
               <p className="mt-2 text-3xl font-bold text-primary">8권</p>
             </div>
 
+            {/* TODO(M1 후속): Library 통계 API 연동 시 실제 데이터로 교체 */}
             <div className="rounded-[24px] bg-card px-3 py-5 text-center shadow-sm">
               <p className="text-xs font-semibold text-primary/60">총 완독</p>
               <p className="mt-2 text-3xl font-bold text-primary">47권</p>
@@ -131,12 +263,12 @@ export default function MyProfilePage() {
 
             <div className="rounded-[24px] bg-card px-3 py-5 text-center shadow-sm">
               <p className="text-xs font-semibold text-primary/60">감상</p>
-              <p className="mt-2 text-3xl font-bold text-primary">63개</p>
+              <p className="mt-2 text-3xl font-bold text-primary">{profile.reviewCount}개</p>
             </div>
           </div>
         </section>
 
-        {/* Yearly Reading Stack */}
+        {/* Yearly Reading Stack — TODO(M1 후속): Library API 연동 필요 */}
         <section className="px-6 pt-10">
           <div className="mb-6 text-center">
             <h2 className="text-2xl font-bold text-primary/90">Your Wisdom Tower</h2>
@@ -160,7 +292,7 @@ export default function MyProfilePage() {
           </div>
         </section>
 
-        {/* Reading Statistics */}
+        {/* Reading Statistics — TODO(M1 후속): 통계 전용 API 연동 필요 */}
         <section className="px-6 pt-10">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-[28px] font-bold tracking-tight text-foreground">나의 독서 통계</h2>
@@ -215,7 +347,7 @@ export default function MyProfilePage() {
           </div>
         </section>
 
-        {/* Public Review Timeline */}
+        {/* Public Review Timeline — TODO(M1 후속): Review 목록 API 연동 필요 */}
         <section className="px-6 pb-10 pt-10">
           <h2 className="mb-5 text-[28px] font-bold tracking-tight text-foreground">
             공개 감상 타임라인
