@@ -94,15 +94,19 @@ export default function SettingsPage() {
   const LinkRow = ({
     title,
     description,
+    onClick,
     noBorder = false,
   }: {
     title: string
     description?: string
+    onClick?: () => void
     noBorder?: boolean
   }) => (
     <button
       type="button"
-      className={`flex w-full items-center justify-between gap-4 px-5 py-5 text-left transition-colors hover:bg-primary/5 ${
+      onClick={onClick}
+      disabled={!onClick}
+      className={`flex w-full items-center justify-between gap-4 px-5 py-5 text-left transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:hover:bg-transparent ${
         noBorder ? '' : 'border-b border-border'
       }`}
     >
@@ -207,7 +211,7 @@ export default function SettingsPage() {
         <section className="px-5 pt-8">
           <h2 className="mb-3 text-lg font-bold text-primary/80">계정 관리</h2>
           <div className="overflow-hidden rounded-[28px] bg-card shadow-sm">
-            <LinkRow title="비밀번호 변경" />
+            <LinkRow title="비밀번호 변경" onClick={() => navigate('/settings/password')} />
             <LinkRow title="연동 소셜 계정" description="Google 연동 중" noBorder />
           </div>
         </section>

@@ -16,6 +16,7 @@ import AuthCallbackPage from '@/pages/AuthCallbackPage'
 import PasswordResetRequestPage from '@/pages/PasswordResetRequestPage'
 import PasswordResetPage from '@/pages/PasswordResetPage'
 import EmailVerificationPage from '@/pages/EmailVerificationPage'
+import PasswordChangePage from '@/pages/PasswordChangePage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -132,6 +133,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <SettingsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/settings/password',
+    element: (
+      <ProtectedRoute>
+        <PasswordChangePage />
       </ProtectedRoute>
     ),
   },
