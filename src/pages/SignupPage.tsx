@@ -133,7 +133,7 @@ export default function SignupPage() {
         },
         result.accessToken
       )
-      navigate('/')
+      navigate('/verify-email', { replace: true, state: { email } })
     } catch (error) {
       setStep2ErrorMessage(error instanceof Error ? error.message : '회원가입에 실패했습니다.')
     } finally {
