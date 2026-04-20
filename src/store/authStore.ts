@@ -17,6 +17,7 @@ interface AuthState {
   isAuthenticated: boolean
   setAuth: (user: User, accessToken: string) => void
   clearAuth: () => void
+  completeOnboarding: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -30,6 +31,10 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null, accessToken: null, isAuthenticated: false })
         useAuthStore.persist.clearStorage?.()
       },
+      completeOnboarding: () =>
+        set(state => ({
+          user: state.user ? { ...state.user, onboardingCompleted: true } : null,
+        })),
     }),
     {
       name: 'auth-storage',

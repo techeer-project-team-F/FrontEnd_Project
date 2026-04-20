@@ -48,7 +48,7 @@ export default function AuthCallbackPage() {
           },
           result.accessToken
         )
-        navigate('/', { replace: true })
+        navigate(result.user.onboardingCompleted ? '/' : '/onboarding', { replace: true })
       })
       .catch(err => {
         setErrorMessage(err instanceof Error ? err.message : 'Google 로그인에 실패했습니다.')
