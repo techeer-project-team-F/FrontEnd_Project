@@ -175,8 +175,8 @@ export default function WithdrawPage() {
       <Dialog
         open={isConfirmOpen}
         onOpenChange={open => {
-          // API 인플라이트 중에는 다이얼로그 닫기 차단
           if (isProcessing && !open) return
+          if (!open) setPendingData(null)
           setIsConfirmOpen(open)
         }}
       >
@@ -197,7 +197,10 @@ export default function WithdrawPage() {
           <DialogFooter className="gap-2">
             <button
               type="button"
-              onClick={() => setIsConfirmOpen(false)}
+              onClick={() => {
+                setPendingData(null)
+                setIsConfirmOpen(false)
+              }}
               disabled={isProcessing}
               className="rounded-lg border border-primary/20 bg-card px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-primary/5 disabled:opacity-60"
             >
