@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect, useRef, useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate } from 'react-router-dom'
@@ -33,18 +33,28 @@ export default function WithdrawPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
   const [pendingData, setPendingData] = useState<FormData | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const errorRef = useRef<HTMLParagraphElement | null>(null)
 
   const {
     register,
     handleSubmit,
-    watch,
-    formState: { errors, isSubmitting },
+    control,
+    formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { password: '', reason: '' },
   })
 
-  const reasonLength = watch('reason')?.length ?? 0
+  const reason = useWatch({ control, name: 'reason' })
+  const reasonLength = reason?.length ?? 0
+
+  // 에러 발생 시 에러 메시지로 스크롤 이동 (LOW 8)
+  useEffect(() => {
+    if (errorMessage && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [errorMessage])
 
   const onSubmit = (data: FormData) => {
     setErrorMessage(null)
@@ -53,7 +63,8 @@ export default function WithdrawPage() {
   }
 
   const handleConfirmWithdraw = async () => {
-    if (!pendingData || isSubmitting) return
+    if (!pendingData || isProcessing) return
+    setIsProcessing(true)
     setErrorMessage(null)
     try {
       await withdrawAccount(pendingData.password, pendingData.reason?.trim() || undefined)
@@ -62,7 +73,10 @@ export default function WithdrawPage() {
       navigate('/login', { replace: true })
     } catch (error) {
       setIsConfirmOpen(false)
+      setPendingData(null)
       setErrorMessage(error instanceof Error ? error.message : '회원 탈퇴에 실패했습니다.')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -111,6 +125,7 @@ export default function WithdrawPage() {
             <textarea
               id="withdraw-reason"
               {...register('reason')}
+              maxLength={REASON_MAX_LENGTH}
               placeholder="서비스 개선에 참고할 수 있도록 탈퇴하시는 이유를 알려주시면 감사하겠습니다."
               aria-describedby="withdraw-reason-counter"
               className="min-h-[120px] w-full resize-none rounded-xl border-none bg-card px-5 py-4 text-sm shadow-sm transition-all placeholder:text-muted-foreground/40 focus:ring-2 focus:ring-primary/20"
@@ -137,8 +152,10 @@ export default function WithdrawPage() {
 
           {errorMessage && (
             <p
+              ref={errorRef}
               role="alert"
               aria-atomic="true"
+              tabIndex={-1}
               className="rounded-lg bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
             >
               {errorMessage}
@@ -147,16 +164,30 @@ export default function WithdrawPage() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isProcessing}
             className="mt-4 w-full rounded-xl bg-destructive py-4 text-lg font-bold text-destructive-foreground shadow-lg shadow-destructive/20 transition-all hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? '처리 중...' : '탈퇴하기'}
+            {isProcessing ? '처리 중...' : '탈퇴하기'}
           </button>
         </form>
       </main>
 
-      <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent>
+      <Dialog
+        open={isConfirmOpen}
+        onOpenChange={open => {
+          // API 인플라이트 중에는 다이얼로그 닫기 차단
+          if (isProcessing && !open) return
+          setIsConfirmOpen(open)
+        }}
+      >
+        <DialogContent
+          onInteractOutside={e => {
+            if (isProcessing) e.preventDefault()
+          }}
+          onEscapeKeyDown={e => {
+            if (isProcessing) e.preventDefault()
+          }}
+        >
           <DialogHeader>
             <DialogTitle>정말로 탈퇴하시겠습니까?</DialogTitle>
             <DialogDescription>
@@ -167,7 +198,7 @@ export default function WithdrawPage() {
             <button
               type="button"
               onClick={() => setIsConfirmOpen(false)}
-              disabled={isSubmitting}
+              disabled={isProcessing}
               className="rounded-lg border border-primary/20 bg-card px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-primary/5 disabled:opacity-60"
             >
               취소
@@ -175,10 +206,10 @@ export default function WithdrawPage() {
             <button
               type="button"
               onClick={handleConfirmWithdraw}
-              disabled={isSubmitting}
+              disabled={isProcessing}
               className="rounded-lg bg-destructive px-5 py-3 text-sm font-semibold text-destructive-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? '처리 중...' : '탈퇴하기'}
+              {isProcessing ? '처리 중...' : '탈퇴하기'}
             </button>
           </DialogFooter>
         </DialogContent>
