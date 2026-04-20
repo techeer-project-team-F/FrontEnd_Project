@@ -212,12 +212,11 @@ export default function MyProfilePage() {
               </span>
             )}
 
-            {/* TODO(M2): 프로필 수정 페이지 연동 시 onClick 추가 */}
             <button
               type="button"
-              disabled
-              aria-label="프로필 편집 (준비 중)"
-              className="absolute bottom-1 right-1 flex h-10 w-10 items-center justify-center rounded-full border-4 border-background bg-primary/60 text-primary-foreground shadow-sm"
+              onClick={() => navigate('/settings/profile')}
+              aria-label="프로필 편집"
+              className="absolute bottom-1 right-1 flex h-10 w-10 items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground shadow-sm transition-all hover:opacity-90 active:scale-95"
             >
               <span className="material-symbols-outlined text-[18px]">edit</span>
             </button>

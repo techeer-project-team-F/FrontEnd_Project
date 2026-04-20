@@ -18,6 +18,7 @@ import PasswordResetPage from '@/pages/PasswordResetPage'
 import EmailVerificationPage from '@/pages/EmailVerificationPage'
 import PasswordChangePage from '@/pages/PasswordChangePage'
 import WithdrawPage from '@/pages/WithdrawPage'
+import EditProfilePage from '@/pages/EditProfilePage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -138,6 +139,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <SettingsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/settings/profile',
+    element: (
+      <ProtectedRoute>
+        <EditProfilePage />
       </ProtectedRoute>
     ),
   },
