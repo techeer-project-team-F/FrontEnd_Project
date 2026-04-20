@@ -14,8 +14,8 @@ export default function UserProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const numericUserId = Number(userId)
-  const isValidId = Number.isInteger(numericUserId) && numericUserId > 0
+  const isValidId = /^\d+$/.test(userId ?? '')
+  const numericUserId = isValidId ? parseInt(userId!, 10) : 0
 
   useEffect(() => {
     if (!userId || !isValidId) {
