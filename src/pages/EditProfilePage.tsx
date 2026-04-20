@@ -13,6 +13,7 @@ const BIO_MAX = 300
 const schema = z.object({
   nickname: z
     .string()
+    .trim()
     .min(1, '닉네임을 입력해주세요')
     .max(NICKNAME_MAX, `닉네임은 ${NICKNAME_MAX}자 이내로 입력해주세요`),
   bio: z.string().max(BIO_MAX, `자기소개는 ${BIO_MAX}자 이내로 입력해주세요`).optional(),
@@ -45,16 +46,16 @@ export default function EditProfilePage() {
   const bio = useWatch({ control, name: 'bio' })
 
   const onSubmit = async (data: FormData) => {
+    if (!user || !accessToken) {
+      navigate('/login', { replace: true })
+      return
+    }
     setErrorMessage(null)
     try {
       const result = await updateProfile({
-        nickname: data.nickname.trim(),
-        bio: data.bio?.trim() || undefined,
+        nickname: data.nickname,
+        bio: data.bio?.trim(),
       })
-      if (!user || !accessToken) {
-        navigate('/login', { replace: true })
-        return
-      }
       setAuth(
         {
           ...user,
