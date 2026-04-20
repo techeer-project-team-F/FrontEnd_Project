@@ -68,6 +68,7 @@ export default function WithdrawPage() {
     setErrorMessage(null)
     try {
       await withdrawAccount(pendingData.password, pendingData.reason?.trim() || undefined)
+      setPendingData(null)
       setIsConfirmOpen(false)
       clearAuth()
       navigate('/login', { replace: true })
