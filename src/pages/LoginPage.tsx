@@ -1,12 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { login, getGoogleLoginUrl } from '@/api/auth'
-
-const ONBOARDING_KEY = 'booklog-onboarding-complete'
 
 const loginSchema = z.object({
   email: z.string().email('올바른 이메일을 입력하세요'),
@@ -24,12 +22,6 @@ export default function LoginPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [googleErrorMessage, setGoogleErrorMessage] = useState<string | null>(null)
 
-  // 온보딩을 완료하지 않은 사용자는 온보딩 페이지로 리다이렉트
-  useEffect(() => {
-    if (localStorage.getItem(ONBOARDING_KEY) !== 'true') {
-      navigate('/onboarding', { replace: true })
-    }
-  }, [navigate])
   const {
     register,
     handleSubmit,
@@ -72,7 +64,7 @@ export default function LoginPage() {
         },
         result.accessToken
       )
-      navigate('/')
+      navigate(result.user.onboardingCompleted ? '/' : '/onboarding', { replace: true })
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '로그인에 실패했습니다.')
     } finally {

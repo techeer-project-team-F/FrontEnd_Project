@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-
-const ONBOARDING_KEY = 'booklog-onboarding-complete'
+import { useAuthStore } from '@/store/authStore'
 
 const slides = [
   {
@@ -46,17 +45,14 @@ const slides = [
 export default function OnboardingPage() {
   const [step, setStep] = useState(0)
   const navigate = useNavigate()
+  const onboardingCompleted = useAuthStore(state => state.user?.onboardingCompleted)
+  const completeOnboardingStore = useAuthStore(state => state.completeOnboarding)
 
-  // 이미 온보딩을 완료한 사용자는 바로 로그인 페이지로
-  useEffect(() => {
-    if (localStorage.getItem(ONBOARDING_KEY) === 'true') {
-      navigate('/login', { replace: true })
-    }
-  }, [navigate])
+  if (onboardingCompleted) return <Navigate to="/" replace />
 
   const completeOnboarding = () => {
-    localStorage.setItem(ONBOARDING_KEY, 'true')
-    navigate('/login', { replace: true })
+    completeOnboardingStore()
+    navigate('/', { replace: true })
   }
 
   const handleNext = () => {
