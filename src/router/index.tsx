@@ -19,6 +19,7 @@ import EmailVerificationPage from '@/pages/EmailVerificationPage'
 import PasswordChangePage from '@/pages/PasswordChangePage'
 import WithdrawPage from '@/pages/WithdrawPage'
 import EditProfilePage from '@/pages/EditProfilePage'
+import UserProfilePage from '@/pages/UserProfilePage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -115,6 +116,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <MyProfilePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/user/:userId',
+    element: (
+      <ProtectedRoute>
+        <UserProfilePage />
       </ProtectedRoute>
     ),
   },
