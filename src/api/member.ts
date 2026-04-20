@@ -36,3 +36,13 @@ export async function changePassword(currentPassword: string, newPassword: strin
     throw normalizeAxiosError(error, '비밀번호 변경에 실패했습니다. 잠시 후 다시 시도해주세요.')
   }
 }
+
+export async function withdrawAccount(password: string, reason?: string): Promise<void> {
+  try {
+    await apiClient.delete('/api/v1/users/me', {
+      data: { password, ...(reason ? { reason } : {}) },
+    })
+  } catch (error) {
+    throw normalizeAxiosError(error, '회원 탈퇴에 실패했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
