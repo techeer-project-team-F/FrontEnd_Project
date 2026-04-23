@@ -6,6 +6,7 @@ import BottomNav from '@/components/layout/BottomNav'
 import StarRating from '@/components/common/StarRating'
 import AddToLibrarySheet from '@/components/common/AddToLibrarySheet'
 import { getBook, type BookDetail, type BackendReadingStatus } from '@/api/book'
+import { addLibraryBook } from '@/api/library'
 import type { ReadingStatus } from '@/types'
 
 const statusEmoji: Record<ReadingStatus, string> = {
@@ -15,6 +16,7 @@ const statusEmoji: Record<ReadingStatus, string> = {
   stopped: '⏸️ 중단',
 }
 
+// TODO(후속): backendToFrontStatus 맵이 @/api/library 에도 동일하게 export되어 있어 중복. 후속 리팩터 이슈에서 통합 예정.
 const backendToFrontStatus: Record<BackendReadingStatus, ReadingStatus> = {
   WANT_TO_READ: 'want_to_read',
   READING: 'reading',
@@ -22,6 +24,9 @@ const backendToFrontStatus: Record<BackendReadingStatus, ReadingStatus> = {
   STOPPED: 'stopped',
 }
 
+// toFrontStatus 유지 이유: getBook 응답의 myLibraryStatus는 string | null 타입(백엔드 Nullable)으로 내려오므로
+// 방어적 null 변환이 필요하다. addLibraryBook 응답은 BackendReadingStatus로 타입 보장되지만, 여기서는
+// 동일한 변환기를 재사용하여 호출부 단순화를 유지한다. 백엔드 enum이 확장되면 exhaustive map으로 이행 고려.
 function toFrontStatus(s: string | null): ReadingStatus | null {
   if (s && s in backendToFrontStatus) {
     return backendToFrontStatus[s as BackendReadingStatus]
@@ -36,7 +41,6 @@ export default function BookDetailPage() {
   const [book, setBook] = useState<BookDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  // TODO(B3): Library API 연동 시 savedStatus를 API 호출로 대체하고 myLibraryStatus와 동기화
   const [savedStatus, setSavedStatus] = useState<ReadingStatus | null>(null)
 
   const parsedBookId = bookId ? Number(bookId) : NaN
@@ -114,6 +118,15 @@ export default function BookDetailPage() {
     } else {
       navigate(`/review/write/${book.bookId}`)
     }
+  }
+
+  const handleSaveLibraryStatus = async (status: ReadingStatus) => {
+    // TODO(L4): 이미 서재에 있는 도서의 상태 변경은 PATCH /api/v1/library/{libraryBookId}/status 연동 필요.
+    // 현재는 AddToLibrarySheet에서 disabled 처리되어 이 경로는 호출되지 않지만 방어적으로 유지한다.
+    if (savedStatus) return
+
+    const result = await addLibraryBook(book.bookId, status)
+    setSavedStatus(toFrontStatus(result.status))
   }
 
   return (
@@ -237,7 +250,7 @@ export default function BookDetailPage() {
       <AddToLibrarySheet
         isOpen={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        onSave={setSavedStatus}
+        onSave={handleSaveLibraryStatus}
         bookId={String(book.bookId)}
         defaultStatus={savedStatus ?? undefined}
       />
