@@ -61,6 +61,11 @@ export default function MyLibraryPage() {
     moreControllerRef.current?.abort()
 
     const controller = new AbortController()
+    // 이전 필터의 목록을 즉시 비워 로딩 표시(isLoading && items.length === 0)를 노출한다.
+    // 그렇지 않으면 필터 전환 시 구 데이터가 새 응답 도착까지 그대로 보여 UX가 혼란스럽다.
+    setItems([])
+    setNextCursor(null)
+    setHasNext(false)
     setIsLoading(true)
     setErrorMessage(null)
     ;(async () => {
