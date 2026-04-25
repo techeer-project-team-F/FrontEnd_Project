@@ -56,6 +56,52 @@ export interface GetMyLibraryParams {
   signal?: AbortSignal
 }
 
+export type LibraryVisibility = 'PUBLIC' | 'PRIVATE'
+
+export interface UserLibraryResponse {
+  libraryVisibility: LibraryVisibility
+  content: LibraryBookSummary[]
+  nextCursor: number | null
+  hasNext: boolean
+  size: number
+}
+
+export interface GetUserLibraryParams {
+  userId: number
+  status?: ReadingStatus
+  cursor?: number | null
+  limit?: number
+  signal?: AbortSignal
+}
+
+export async function getUserLibrary({
+  userId,
+  status,
+  cursor,
+  limit = 20,
+  signal,
+}: GetUserLibraryParams): Promise<UserLibraryResponse> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<UserLibraryResponse>>(
+      `/api/v1/members/${userId}/library`,
+      {
+        params: {
+          limit,
+          ...(status ? { status: frontToBackendStatus[status] } : {}),
+          ...(cursor != null ? { cursor } : {}),
+        },
+        signal,
+      }
+    )
+    if (!data.data) {
+      throw new Error(data.message ?? '서재 조회 응답이 올바르지 않습니다.')
+    }
+    return data.data
+  } catch (error) {
+    throw normalizeAxiosError(error, '서재를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
+
 export interface LibraryBookDetail {
   libraryBookId: number
   book: {
