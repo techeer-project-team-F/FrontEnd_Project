@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import AppHeader from '@/components/layout/AppHeader'
@@ -6,7 +6,7 @@ import BottomNav from '@/components/layout/BottomNav'
 import StarRating from '@/components/common/StarRating'
 import AddToLibrarySheet from '@/components/common/AddToLibrarySheet'
 import { getBook, type BookDetail, type BackendReadingStatus } from '@/api/book'
-import { addLibraryBook } from '@/api/library'
+import { addLibraryBook, updateLibraryBookStatus } from '@/api/library'
 import type { ReadingStatus } from '@/types'
 
 const statusEmoji: Record<ReadingStatus, string> = {
@@ -42,6 +42,16 @@ export default function BookDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [savedStatus, setSavedStatus] = useState<ReadingStatus | null>(null)
+  const isMountedRef = useRef(true)
+
+  // StrictMode dev 모드에서 effect가 mount → unmount → mount로 더블 인보크되므로
+  // setup에서 명시적으로 true로 리셋해 ref가 false로 stuck되지 않도록 한다.
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   const parsedBookId = bookId ? Number(bookId) : NaN
   const isValidBookId = Number.isInteger(parsedBookId) && parsedBookId > 0
@@ -121,12 +131,19 @@ export default function BookDetailPage() {
   }
 
   const handleSaveLibraryStatus = async (status: ReadingStatus) => {
-    // TODO(L4): 이미 서재에 있는 도서의 상태 변경은 PATCH /api/v1/library/{libraryBookId}/status 연동 필요.
-    // 현재는 AddToLibrarySheet에서 disabled 처리되어 이 경로는 호출되지 않지만 방어적으로 유지한다.
-    if (savedStatus) return
-
+    if (book.myLibraryBookId != null) {
+      // 이미 서재에 있는 도서 → PATCH로 상태만 변경
+      const result = await updateLibraryBookStatus(book.myLibraryBookId, status)
+      if (!isMountedRef.current) return
+      // unknown enum 응답이면 사용자가 방금 선택한 status를 fallback으로 유지 (CTA가 "내 서재에 추가"로 회귀하는 오해 방지)
+      setSavedStatus(toFrontStatus(result.status) ?? status)
+      return
+    }
+    // 신규 추가 → POST. 응답의 libraryBookId를 로컬 book 상태에 반영해 다음 수정이 PATCH로 가도록 한다.
     const result = await addLibraryBook(book.bookId, status)
-    setSavedStatus(toFrontStatus(result.status))
+    if (!isMountedRef.current) return
+    setSavedStatus(toFrontStatus(result.status) ?? status)
+    setBook(prev => (prev ? { ...prev, myLibraryBookId: result.libraryBookId } : prev))
   }
 
   return (
