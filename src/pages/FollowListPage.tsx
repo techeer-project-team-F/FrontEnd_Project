@@ -87,6 +87,8 @@ export default function FollowListPage() {
 
   // 닉네임은 별도 호출로 가져옴 (직접 URL 진입에도 동작 보장)
   useEffect(() => {
+    // 라우트 변경/중단 시 이전 사용자 닉네임이 헤더에 잔류하지 않도록 즉시 fallback으로 리셋
+    setNickname(null)
     if (!isValidId) return
     const controller = new AbortController()
     ;(async () => {
@@ -243,9 +245,16 @@ export default function FollowListPage() {
       if (!isMountedRef.current) return
       // 탭이 그 사이 바뀌었다면 list 갱신 스킵 (다른 fetcher의 결과로 채워졌을 수 있음)
       if (stateRef.current.activeTab !== requestedTab) return
-      setItems(prev =>
-        prev.map(it => (it.userId === target.userId ? { ...it, isFollowing: !wasFollowing } : it))
-      )
+      // 내 팔로잉 목록에서 언팔로우한 경우, 해당 항목은 더 이상 팔로잉이 아니므로 목록에서 제거
+      const isMyFollowingTab =
+        myUserId != null && numericUserId === myUserId && requestedTab === 'following'
+      if (isMyFollowingTab && wasFollowing) {
+        setItems(prev => prev.filter(it => it.userId !== target.userId))
+      } else {
+        setItems(prev =>
+          prev.map(it => (it.userId === target.userId ? { ...it, isFollowing: !wasFollowing } : it))
+        )
+      }
     } catch (error) {
       if (!isMountedRef.current) return
       const message = error instanceof Error ? error.message : '요청에 실패했습니다.'
