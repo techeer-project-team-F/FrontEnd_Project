@@ -106,6 +106,10 @@ export default function FollowListPage() {
     if (!isValidId) {
       setErrorMessage('잘못된 사용자 ID입니다.')
       setIsLoading(false)
+      // 이전 탭에서 로드된 항목/페이지네이션 상태가 잔류하지 않도록 함께 리셋
+      setItems([])
+      setNextCursor(null)
+      setHasNext(false)
       return
     }
 
@@ -188,7 +192,7 @@ export default function FollowListPage() {
 
   // sentinel ref callback: 조건부 렌더된 sentinel 마운트/언마운트에 따라 observer 재부착이 자동
   const sentinelRef = useCallback(
-    (node: HTMLDivElement | null) => {
+    (node: HTMLLIElement | null) => {
       observerRef.current?.disconnect()
       if (!node) {
         observerRef.current = null
@@ -380,15 +384,17 @@ export default function FollowListPage() {
               )
             })}
 
-            {/* 무한 스크롤 sentinel */}
-            <div ref={sentinelRef} className="h-10" />
+            {/* 무한 스크롤 sentinel — <ul> 직계 자식은 <li>여야 유효 마크업 */}
+            <li ref={sentinelRef} aria-hidden="true" className="h-10 list-none" />
 
             {isLoadingMore && (
-              <p className="py-4 text-center text-xs text-muted-foreground">더 불러오는 중...</p>
+              <li className="list-none py-4 text-center text-xs text-muted-foreground">
+                더 불러오는 중...
+              </li>
             )}
 
             {loadMoreError && !isLoadingMore && (
-              <div className="flex flex-col items-center gap-2 py-4">
+              <li className="flex list-none flex-col items-center gap-2 py-4">
                 <p role="alert" className="text-sm text-destructive">
                   {loadMoreError}
                 </p>
@@ -399,13 +405,13 @@ export default function FollowListPage() {
                 >
                   다시 불러오기
                 </button>
-              </div>
+              </li>
             )}
 
             {!hasNext && !isLoadingMore && !loadMoreError && (
-              <p className="py-4 text-center text-xs text-muted-foreground/50">
+              <li className="list-none py-4 text-center text-xs text-muted-foreground/50">
                 모든 사용자를 확인했습니다
-              </p>
+              </li>
             )}
           </ul>
         )}
