@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import AppHeader from '@/components/layout/AppHeader'
 import { getUserProfile, type UserProfile } from '@/api/member'
+import { followUser, unfollowUser } from '@/api/follow'
 import { useAuthStore } from '@/store/authStore'
 
 export default function UserProfilePage() {
@@ -13,6 +14,25 @@ export default function UserProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isFollowProcessing, setIsFollowProcessing] = useState(false)
+  const [followError, setFollowError] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
+  // 토글 진행 중 사용자가 다른 프로필로 이동하면, 늦게 도착한 응답이 새 프로필에 잘못 반영되는 것을 방지하기 위한 추적 ref
+  const profileIdRef = useRef<number | null>(null)
+
+  // StrictMode dev 모드에서 effect가 mount → unmount → mount로 더블 인보크되므로
+  // setup에서 명시적으로 true로 리셋해 ref가 false로 stuck되지 않도록 한다.
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
+  // profile.userId가 바뀔 때마다 ref 동기화 — 토글 핸들러가 stale 응답을 가드하기 위함
+  useEffect(() => {
+    profileIdRef.current = profile?.userId ?? null
+  }, [profile?.userId])
 
   const isValidId = /^\d+$/.test(userId ?? '')
   const numericUserId = isValidId ? parseInt(userId!, 10) : 0
@@ -81,6 +101,56 @@ export default function UserProfilePage() {
     )
   }
 
+  const handleToggleFollow = async () => {
+    if (isFollowProcessing) return
+    // 결정 시점 스냅샷: 호출 직후 외부에서 profile.isFollowing이 바뀌어도 분기를 일관되게 유지
+    // (미래 옵티미스틱 업데이트/외부 갱신 도입 시 회귀 방지)
+    const wasFollowing = profile.isFollowing
+    // 토글 대상 userId 캡처: await 도중 사용자가 다른 프로필로 이동하면 응답을 무시하기 위함
+    const targetId = profile.userId
+    setIsFollowProcessing(true)
+    setFollowError(null)
+    // 응답 도착 시 현재 프로필이 여전히 동일 사용자인지 확인하는 stale guard
+    const isStale = () => !isMountedRef.current || profileIdRef.current !== targetId
+    try {
+      if (wasFollowing) {
+        const result = await unfollowUser(targetId)
+        if (isStale()) return
+        setProfile(prev =>
+          prev && prev.userId === targetId
+            ? {
+                ...prev,
+                isFollowing: false,
+                followerCount: Number.isFinite(result.followerCount)
+                  ? result.followerCount
+                  : prev.followerCount,
+              }
+            : prev
+        )
+      } else {
+        const result = await followUser(targetId)
+        if (isStale()) return
+        setProfile(prev =>
+          prev && prev.userId === targetId
+            ? {
+                ...prev,
+                isFollowing: true,
+                followerCount: Number.isFinite(result.followerCount)
+                  ? result.followerCount
+                  : prev.followerCount,
+              }
+            : prev
+        )
+      }
+    } catch (error) {
+      if (isStale()) return
+      setFollowError(error instanceof Error ? error.message : '요청에 실패했습니다.')
+    } finally {
+      // stale 여부와 무관하게 항상 reset — 그렇지 않으면 사용자가 다른 프로필로 이동한 새 페이지에서 버튼이 영구 disabled
+      if (isMountedRef.current) setIsFollowProcessing(false)
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <AppHeader title="프로필" showBack />
@@ -122,16 +192,29 @@ export default function UserProfilePage() {
         </section>
 
         {/* Follow Button */}
-        <section className="px-6 pt-6">
-          {/* TODO(Follow): Follow 도메인 개발 시 isFollowing 상태에 따라 팔로우/언팔로우 토글 구현 */}
+        <section className="flex flex-col gap-2 px-6 pt-6">
           <button
             type="button"
-            disabled
-            aria-disabled="true"
-            className="w-full rounded-xl bg-primary/60 py-4 text-lg font-bold text-primary-foreground shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={handleToggleFollow}
+            disabled={isFollowProcessing}
+            aria-pressed={profile.isFollowing}
+            className={
+              profile.isFollowing
+                ? 'w-full rounded-xl border border-primary/30 bg-card py-4 text-lg font-bold text-primary shadow-sm transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60'
+                : 'w-full rounded-xl bg-primary py-4 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
+            }
           >
-            팔로우 (준비 중)
+            {isFollowProcessing ? '처리 중...' : profile.isFollowing ? '팔로잉' : '팔로우'}
           </button>
+          {followError && (
+            <p
+              role="alert"
+              aria-atomic="true"
+              className="rounded-lg bg-destructive/10 px-4 py-2 text-center text-sm text-destructive"
+            >
+              {followError}
+            </p>
+          )}
         </section>
 
         {/* 서재 보기 진입점 */}
