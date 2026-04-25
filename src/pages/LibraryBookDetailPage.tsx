@@ -60,15 +60,15 @@ export default function LibraryBookDetailPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
   const isMountedRef = useRef(true)
-  // 액션시트 → 확인 다이얼로그 전환 시, 닫기 직후 띄울 단계를 보관 (HIGH 1: 두 Dialog 동시 활성 회피)
-  const pendingActionRef = useRef<'remove' | null>(null)
 
-  useEffect(
-    () => () => {
+  // StrictMode dev 모드에서 effect가 mount → unmount → mount로 더블 인보크되므로
+  // setup에서 명시적으로 true로 리셋해 ref가 false로 stuck되지 않도록 한다.
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
       isMountedRef.current = false
-    },
-    []
-  )
+    }
+  }, [])
 
   useEffect(() => {
     // 파생값을 effect 내부에서 다시 산출해 deps를 libraryBookId 하나로 단순화
@@ -157,20 +157,13 @@ export default function LibraryBookDetailPage() {
 
   const openRemoveConfirm = () => {
     setRemoveError(null)
-    pendingActionRef.current = 'remove'
     setIsMenuOpen(false)
-  }
-
-  // 액션시트가 닫힌 직후, 보류된 다음 단계가 있으면 실행 (Dialog 동시 활성 회피)
-  const handleMenuOpenChange = (open: boolean) => {
-    setIsMenuOpen(open)
-    if (!open && pendingActionRef.current === 'remove') {
-      pendingActionRef.current = null
-      // requestAnimationFrame으로 Radix Dialog가 unmount/포커스 복귀를 마친 다음 프레임에 confirm을 띄운다.
-      requestAnimationFrame(() => {
-        if (isMountedRef.current) setIsConfirmOpen(true)
-      })
-    }
+    // Radix는 programmatic close 시 onOpenChange를 발화하지 않으므로,
+    // 액션시트 unmount/포커스 복귀를 기다린 다음 프레임에 confirm을 직접 띄운다.
+    // (HIGH 1: 두 Dialog 동시 활성 회피)
+    requestAnimationFrame(() => {
+      if (isMountedRef.current) setIsConfirmOpen(true)
+    })
   }
 
   // 백엔드 enum이 미지원 값이어도 페이지가 크래시하지 않도록 방어
@@ -327,7 +320,7 @@ export default function LibraryBookDetailPage() {
       </main>
 
       {/* 더보기 액션시트 (TODO(L4): 독서 상태 변경 / 감상 쓰기 항목 추가 예정) */}
-      <Dialog open={isMenuOpen} onOpenChange={handleMenuOpenChange}>
+      <Dialog open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         {/* pt-12: Dialog 내장 X 닫기 버튼(우상단)이 첫 메뉴 항목과 겹치지 않도록 여백 확보 */}
         <DialogContent className="max-w-sm gap-0 p-0 pt-12">
           <DialogHeader className="sr-only">
