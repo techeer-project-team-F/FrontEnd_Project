@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import AppHeader from '@/components/layout/AppHeader'
 import { getUserProfile, type UserProfile } from '@/api/member'
+import { followUser, unfollowUser } from '@/api/follow'
 import { useAuthStore } from '@/store/authStore'
 
 export default function UserProfilePage() {
@@ -13,6 +14,18 @@ export default function UserProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isFollowProcessing, setIsFollowProcessing] = useState(false)
+  const [followError, setFollowError] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
+
+  // StrictMode dev 모드에서 effect가 mount → unmount → mount로 더블 인보크되므로
+  // setup에서 명시적으로 true로 리셋해 ref가 false로 stuck되지 않도록 한다.
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   const isValidId = /^\d+$/.test(userId ?? '')
   const numericUserId = isValidId ? parseInt(userId!, 10) : 0
@@ -81,6 +94,51 @@ export default function UserProfilePage() {
     )
   }
 
+  const handleToggleFollow = async () => {
+    if (isFollowProcessing) return
+    // 결정 시점 스냅샷: 호출 직후 외부에서 profile.isFollowing이 바뀌어도 분기를 일관되게 유지
+    // (미래 옵티미스틱 업데이트/외부 갱신 도입 시 회귀 방지)
+    const wasFollowing = profile.isFollowing
+    setIsFollowProcessing(true)
+    setFollowError(null)
+    try {
+      if (wasFollowing) {
+        const result = await unfollowUser(profile.userId)
+        if (!isMountedRef.current) return
+        setProfile(prev =>
+          prev
+            ? {
+                ...prev,
+                isFollowing: false,
+                followerCount: Number.isFinite(result.followerCount)
+                  ? result.followerCount
+                  : prev.followerCount,
+              }
+            : prev
+        )
+      } else {
+        const result = await followUser(profile.userId)
+        if (!isMountedRef.current) return
+        setProfile(prev =>
+          prev
+            ? {
+                ...prev,
+                isFollowing: true,
+                followerCount: Number.isFinite(result.followerCount)
+                  ? result.followerCount
+                  : prev.followerCount,
+              }
+            : prev
+        )
+      }
+    } catch (error) {
+      if (!isMountedRef.current) return
+      setFollowError(error instanceof Error ? error.message : '요청에 실패했습니다.')
+    } finally {
+      if (isMountedRef.current) setIsFollowProcessing(false)
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <AppHeader title="프로필" showBack />
@@ -122,16 +180,29 @@ export default function UserProfilePage() {
         </section>
 
         {/* Follow Button */}
-        <section className="px-6 pt-6">
-          {/* TODO(Follow): Follow 도메인 개발 시 isFollowing 상태에 따라 팔로우/언팔로우 토글 구현 */}
+        <section className="flex flex-col gap-2 px-6 pt-6">
           <button
             type="button"
-            disabled
-            aria-disabled="true"
-            className="w-full rounded-xl bg-primary/60 py-4 text-lg font-bold text-primary-foreground shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={handleToggleFollow}
+            disabled={isFollowProcessing}
+            aria-pressed={profile.isFollowing}
+            className={
+              profile.isFollowing
+                ? 'w-full rounded-xl border border-primary/30 bg-card py-4 text-lg font-bold text-primary shadow-sm transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60'
+                : 'w-full rounded-xl bg-primary py-4 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
+            }
           >
-            팔로우 (준비 중)
+            {isFollowProcessing ? '처리 중...' : profile.isFollowing ? '팔로잉' : '팔로우'}
           </button>
+          {followError && (
+            <p
+              role="alert"
+              aria-atomic="true"
+              className="rounded-lg bg-destructive/10 px-4 py-2 text-center text-sm text-destructive"
+            >
+              {followError}
+            </p>
+          )}
         </section>
 
         {/* 서재 보기 진입점 */}
