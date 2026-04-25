@@ -20,6 +20,7 @@ import PasswordChangePage from '@/pages/PasswordChangePage'
 import WithdrawPage from '@/pages/WithdrawPage'
 import EditProfilePage from '@/pages/EditProfilePage'
 import UserProfilePage from '@/pages/UserProfilePage'
+import LibraryBookDetailPage from '@/pages/LibraryBookDetailPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -132,6 +133,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <MyLibraryPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/library/:libraryBookId',
+    element: (
+      <ProtectedRoute>
+        <LibraryBookDetailPage />
       </ProtectedRoute>
     ),
   },

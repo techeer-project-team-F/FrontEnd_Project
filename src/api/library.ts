@@ -10,7 +10,9 @@ export const frontToBackendStatus: Record<ReadingStatus, BackendReadingStatus> =
   stopped: 'STOPPED',
 }
 
-export const backendToFrontStatus: Record<BackendReadingStatus, ReadingStatus> = {
+// Partial로 선언해 백엔드가 알 수 없는 enum 값을 반환할 때 호출측이 undefined를 다루도록 강제한다.
+// (그렇지 않으면 TS가 항상 ReadingStatus를 반환한다고 거짓 안심을 줘서 방어 가드가 사라질 위험)
+export const backendToFrontStatus: Partial<Record<BackendReadingStatus, ReadingStatus>> = {
   WANT_TO_READ: 'want_to_read',
   READING: 'reading',
   FINISHED: 'finished',
@@ -52,6 +54,49 @@ export interface GetMyLibraryParams {
   cursor?: number | null
   limit?: number
   signal?: AbortSignal
+}
+
+export interface LibraryBookDetail {
+  libraryBookId: number
+  book: {
+    bookId: number
+    isbn13: string
+    title: string
+    author: string
+    publisher: string
+    coverImageUrl: string | null
+    totalPages: number | null
+  }
+  status: BackendReadingStatus
+  startedAt: string | null
+  finishedAt: string | null
+  review: {
+    reviewId: number
+    rating: number
+    content: string
+    createdAt: string
+  } | null
+}
+
+export async function getLibraryBookDetail(
+  libraryBookId: number,
+  signal?: AbortSignal
+): Promise<LibraryBookDetail> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<LibraryBookDetail>>(
+      `/api/v1/library/${libraryBookId}`,
+      { signal }
+    )
+    if (!data.data) {
+      throw new Error(data.message ?? '서재 도서 상세 응답이 올바르지 않습니다.')
+    }
+    return data.data
+  } catch (error) {
+    throw normalizeAxiosError(
+      error,
+      '서재 도서 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'
+    )
+  }
 }
 
 export async function getMyLibrary({

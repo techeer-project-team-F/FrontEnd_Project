@@ -243,8 +243,7 @@ export default function MyLibraryPage() {
                 return (
                   <Link
                     key={item.libraryBookId}
-                    // TODO(L3): 서재 도서 상세 페이지 구현 시 `/library/${item.libraryBookId}` 등으로 교체
-                    to={`/book/${item.book.bookId}`}
+                    to={`/library/${item.libraryBookId}`}
                     className="relative flex flex-col gap-2"
                   >
                     <div className="group relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-primary/5 shadow-md">
