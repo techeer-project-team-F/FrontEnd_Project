@@ -113,9 +113,13 @@ export default function LibraryBookDetailPage() {
   // 백엔드 enum이 미지원 값이어도 페이지가 크래시하지 않도록 방어
   const frontStatus: ReadingStatus | undefined = backendToFrontStatus[detail.status]
   const status = frontStatus ? statusLabel[frontStatus] : null
-  const showPeriod = detail.startedAt != null
+  // 날짜 표시 가시성은 데이터 존재 여부만으로 결정 — frontStatus 매핑이 실패해도(unknown enum) 데이터가 있으면 보여준다.
+  // (frontStatus는 라벨/액션 분기에만 사용)
+  const showStarted = detail.startedAt != null
+  const showFinished = detail.finishedAt != null
+  const showPeriod = showStarted || showFinished
   const reading = frontStatus === 'reading'
-  const finished = frontStatus === 'finished'
+  // "N일째 읽는 중" 라벨은 의미상 READING 상태에서만 보여야 하므로 status 분기 유지
   const readingDays = reading ? daysSince(detail.startedAt) : null
 
   return (
@@ -192,11 +196,13 @@ export default function LibraryBookDetailPage() {
         {showPeriod && (
           <section className="mt-5 flex items-start justify-between px-6 text-sm">
             <div className="flex flex-col gap-1">
-              <p>
-                <span className="text-muted-foreground">시작:</span>{' '}
-                <span className="font-medium">{formatDate(detail.startedAt)}</span>
-              </p>
-              {finished && (
+              {showStarted && (
+                <p>
+                  <span className="text-muted-foreground">시작:</span>{' '}
+                  <span className="font-medium">{formatDate(detail.startedAt)}</span>
+                </p>
+              )}
+              {showFinished && (
                 <p>
                   <span className="text-muted-foreground">완료:</span>{' '}
                   <span className="font-medium">{formatDate(detail.finishedAt)}</span>
