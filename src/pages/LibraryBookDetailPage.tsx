@@ -8,6 +8,7 @@ import {
   removeLibraryBook,
   updateLibraryBookStatus,
   backendToFrontStatus,
+  frontToBackendStatus,
   type LibraryBookDetail,
 } from '@/api/library'
 import AddToLibrarySheet from '@/components/common/AddToLibrarySheet'
@@ -161,11 +162,14 @@ export default function LibraryBookDetailPage() {
   const handleStatusChange = async (status: ReadingStatus) => {
     const result = await updateLibraryBookStatus(detail.libraryBookId, status)
     if (!isMountedRef.current) return
+    // unknown enum 응답 시 사용자가 방금 선택한 status로 fallback (BookDetailPage와 동일 정책)
+    const nextStatus =
+      backendToFrontStatus[result.status] != null ? result.status : frontToBackendStatus[status]
     setDetail(prev =>
       prev
         ? {
             ...prev,
-            status: result.status,
+            status: nextStatus,
             startedAt: result.startedAt,
             finishedAt: result.finishedAt,
           }
