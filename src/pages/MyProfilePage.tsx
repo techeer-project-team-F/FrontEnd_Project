@@ -233,13 +233,20 @@ export default function MyProfilePage() {
             </p>
           )}
 
-          {/* TODO(M6): 팔로워/팔로잉 목록 페이지 연동 시 disabled/aria-disabled 제거 + hover 클래스 복원 + onClick 추가 */}
           <div className="mt-6 flex items-center justify-center gap-4 text-base font-medium text-primary/80">
-            <button type="button" disabled aria-disabled="true">
+            <button
+              type="button"
+              onClick={() => navigate(`/user/${profile.userId}/follows?tab=followers`)}
+              className="transition-colors hover:text-primary"
+            >
               팔로워 {profile.followerCount}
             </button>
             <span className="text-primary/30">|</span>
-            <button type="button" disabled aria-disabled="true">
+            <button
+              type="button"
+              onClick={() => navigate(`/user/${profile.userId}/follows?tab=following`)}
+              className="transition-colors hover:text-primary"
+            >
               팔로잉 {profile.followingCount}
             </button>
           </div>

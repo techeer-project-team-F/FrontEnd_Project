@@ -22,6 +22,7 @@ import EditProfilePage from '@/pages/EditProfilePage'
 import UserProfilePage from '@/pages/UserProfilePage'
 import LibraryBookDetailPage from '@/pages/LibraryBookDetailPage'
 import UserLibraryPage from '@/pages/UserLibraryPage'
+import FollowListPage from '@/pages/FollowListPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -134,6 +135,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <UserLibraryPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/user/:userId/follows',
+    element: (
+      <ProtectedRoute>
+        <FollowListPage />
       </ProtectedRoute>
     ),
   },
