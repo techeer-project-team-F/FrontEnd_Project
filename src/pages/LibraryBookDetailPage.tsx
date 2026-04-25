@@ -6,9 +6,11 @@ import StarRating from '@/components/common/StarRating'
 import {
   getLibraryBookDetail,
   removeLibraryBook,
+  updateLibraryBookStatus,
   backendToFrontStatus,
   type LibraryBookDetail,
 } from '@/api/library'
+import AddToLibrarySheet from '@/components/common/AddToLibrarySheet'
 import {
   Dialog,
   DialogContent,
@@ -57,6 +59,7 @@ export default function LibraryBookDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  const [isStatusSheetOpen, setIsStatusSheetOpen] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
   const isMountedRef = useRef(true)
@@ -155,6 +158,21 @@ export default function LibraryBookDetailPage() {
     }
   }
 
+  const handleStatusChange = async (status: ReadingStatus) => {
+    const result = await updateLibraryBookStatus(detail.libraryBookId, status)
+    if (!isMountedRef.current) return
+    setDetail(prev =>
+      prev
+        ? {
+            ...prev,
+            status: result.status,
+            startedAt: result.startedAt,
+            finishedAt: result.finishedAt,
+          }
+        : prev
+    )
+  }
+
   const openRemoveConfirm = () => {
     setRemoveError(null)
     setIsMenuOpen(false)
@@ -235,12 +253,10 @@ export default function LibraryBookDetailPage() {
                 </span>
                 <span className="text-lg font-bold">{status.text}</span>
               </div>
-              {/* TODO(L4): 백엔드 myLibraryBookId 필드 추가 후 활성화 → AddToLibrarySheet 또는 액션시트 트리거 */}
               <button
                 type="button"
-                disabled
-                aria-label="독서 상태 변경 (준비 중)"
-                className="rounded-full border border-primary/40 px-4 py-2 text-sm font-semibold text-primary/40"
+                onClick={() => setIsStatusSheetOpen(true)}
+                className="rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/5"
               >
                 상태 변경
               </button>
@@ -319,7 +335,16 @@ export default function LibraryBookDetailPage() {
         </section>
       </main>
 
-      {/* 더보기 액션시트 (TODO(L4): 독서 상태 변경 / 감상 쓰기 항목 추가 예정) */}
+      {/* 독서 상태 변경 시트 */}
+      <AddToLibrarySheet
+        isOpen={isStatusSheetOpen}
+        onClose={() => setIsStatusSheetOpen(false)}
+        onSave={handleStatusChange}
+        bookId={String(detail.book.bookId)}
+        defaultStatus={frontStatus}
+      />
+
+      {/* 더보기 액션시트 (TODO: 감상 쓰기 항목 추가 예정) */}
       <Dialog open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         {/* pt-12: Dialog 내장 X 닫기 버튼(우상단)이 첫 메뉴 항목과 겹치지 않도록 여백 확보 */}
         <DialogContent className="max-w-sm gap-0 p-0 pt-12">

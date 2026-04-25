@@ -169,6 +169,33 @@ export async function getMyLibrary({
   }
 }
 
+export interface LibraryStatusUpdateResponse {
+  libraryBookId: number
+  status: BackendReadingStatus
+  startedAt: string | null
+  finishedAt: string | null
+}
+
+// AbortSignal 미지원 유지: PATCH는 서버 상태를 변경하므로 클라이언트에서 중단해도 서버 반영 여부가 불확실하고
+// (실제로 DB 쓰기가 이미 커밋되었을 수 있음), 취소의 실효성이 낮다. 대신 호출측에서 이중 클릭 방지(disabled)로 중복 호출을 막는다.
+export async function updateLibraryBookStatus(
+  libraryBookId: number,
+  status: ReadingStatus
+): Promise<LibraryStatusUpdateResponse> {
+  try {
+    const { data } = await apiClient.patch<ApiResponse<LibraryStatusUpdateResponse>>(
+      `/api/v1/library/${libraryBookId}/status`,
+      { status: frontToBackendStatus[status] }
+    )
+    if (!data.data) {
+      throw new Error(data.message ?? '독서 상태 변경 응답이 올바르지 않습니다.')
+    }
+    return data.data
+  } catch (error) {
+    throw normalizeAxiosError(error, '독서 상태를 변경하지 못했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
+
 // AbortSignal 미지원 유지: DELETE는 서버 상태를 변경하므로 클라이언트에서 중단해도 서버 반영 여부가 불확실하고
 // (실제로 DB 삭제가 이미 커밋되었을 수 있음), 취소의 실효성이 낮다. 대신 호출측에서 이중 클릭 방지(disabled)로 중복 호출을 막는다.
 export async function removeLibraryBook(libraryBookId: number): Promise<void> {

@@ -29,9 +29,6 @@ export default function AddToLibrarySheet({
   const [saveError, setSaveError] = useState<string | null>(null)
   const navigate = useNavigate()
 
-  // 이미 서재에 있는 도서의 상태 변경은 L4(PATCH /library/{id}/status)에서 처리 예정
-  const isAlreadyInLibrary = defaultStatus != null
-
   useEffect(() => {
     setSelected(defaultStatus ?? 'want_to_read')
     setSaveError(null)
@@ -79,23 +76,12 @@ export default function AddToLibrarySheet({
             독서 상태 선택
           </h1>
 
-          {isAlreadyInLibrary && (
-            <p
-              role="status"
-              className="mx-6 mb-3 rounded-lg bg-primary/5 px-4 py-3 text-center text-xs text-muted-foreground"
-            >
-              이미 서재에 있는 도서입니다. 상태 변경 기능은 준비 중입니다.
-            </p>
-          )}
-
           <div className="flex flex-col gap-3 px-6 py-2">
             {statusOptions.map(option => (
               <label
                 key={option.value}
                 className={`flex flex-row-reverse items-center gap-4 rounded-xl border border-primary/10 p-4 transition-colors ${
-                  isAlreadyInLibrary || isSaving
-                    ? 'cursor-not-allowed opacity-60'
-                    : 'cursor-pointer hover:bg-primary/5'
+                  isSaving ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-primary/5'
                 }`}
               >
                 <input
@@ -103,7 +89,7 @@ export default function AddToLibrarySheet({
                   name="reading-status"
                   checked={selected === option.value}
                   onChange={() => setSelected(option.value)}
-                  disabled={isAlreadyInLibrary || isSaving}
+                  disabled={isSaving}
                   className="size-5 border-2 border-primary/30 bg-transparent text-primary focus:outline-none focus:ring-0 focus:ring-offset-0"
                 />
                 <div className="flex grow items-center gap-3">
@@ -127,7 +113,7 @@ export default function AddToLibrarySheet({
           <div className="flex flex-col gap-4 px-6 py-6 pb-10">
             <button
               onClick={handleSave}
-              disabled={isAlreadyInLibrary || isSaving}
+              disabled={isSaving}
               className="flex h-14 w-full items-center justify-center rounded-xl bg-primary text-lg font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? '저장 중...' : '저장'}

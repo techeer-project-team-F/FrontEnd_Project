@@ -35,6 +35,7 @@ export interface BookDetail {
   averageRating: number | null
   reviewCount: number | null
   myLibraryStatus: BackendReadingStatus | null
+  myLibraryBookId: number | null
   myReviewId: number | null
 }
 
