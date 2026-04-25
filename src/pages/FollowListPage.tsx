@@ -376,7 +376,7 @@ export default function FollowListPage() {
                     )}
                   </div>
                   {toggleErrors.get(item.userId) && (
-                    <p role="alert" className="ml-15 text-xs text-destructive">
+                    <p role="alert" className="ml-[60px] text-xs text-destructive">
                       {toggleErrors.get(item.userId)}
                     </p>
                   )}
