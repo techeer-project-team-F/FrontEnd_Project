@@ -134,6 +134,25 @@ export default function UserProfilePage() {
           </button>
         </section>
 
+        {/* 서재 보기 진입점 */}
+        <section className="px-6 pt-4">
+          <button
+            type="button"
+            onClick={() => navigate(`/user/${numericUserId}/library`)}
+            className="flex w-full items-center justify-between rounded-xl bg-card p-5 shadow-sm transition-colors hover:bg-card/80"
+          >
+            <div className="flex items-center gap-3">
+              <span aria-hidden="true" className="material-symbols-outlined text-primary">
+                menu_book
+              </span>
+              <span className="text-base font-semibold">서재 보기</span>
+            </div>
+            <span aria-hidden="true" className="material-symbols-outlined text-primary/40">
+              chevron_right
+            </span>
+          </button>
+        </section>
+
         {/* Stats */}
         <section className="px-6 pt-8">
           <div className="grid grid-cols-3 gap-3">
