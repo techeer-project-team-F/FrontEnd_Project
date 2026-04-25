@@ -1,9 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import axios from 'axios'
 import AppHeader from '@/components/layout/AppHeader'
 import StarRating from '@/components/common/StarRating'
-import { getLibraryBookDetail, backendToFrontStatus, type LibraryBookDetail } from '@/api/library'
+import {
+  getLibraryBookDetail,
+  removeLibraryBook,
+  backendToFrontStatus,
+  type LibraryBookDetail,
+} from '@/api/library'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import type { ReadingStatus } from '@/types'
 
 const statusLabel: Record<ReadingStatus, { text: string; emoji: string; bg: string }> = {
@@ -42,6 +55,20 @@ export default function LibraryBookDetailPage() {
   const [detail, setDetail] = useState<LibraryBookDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [removeError, setRemoveError] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
+  // 액션시트 → 확인 다이얼로그 전환 시, 닫기 직후 띄울 단계를 보관 (HIGH 1: 두 Dialog 동시 활성 회피)
+  const pendingActionRef = useRef<'remove' | null>(null)
+
+  useEffect(
+    () => () => {
+      isMountedRef.current = false
+    },
+    []
+  )
 
   useEffect(() => {
     // 파생값을 effect 내부에서 다시 산출해 deps를 libraryBookId 하나로 단순화
@@ -110,6 +137,42 @@ export default function LibraryBookDetailPage() {
     )
   }
 
+  const handleConfirmRemove = async () => {
+    if (isProcessing) return
+    setIsProcessing(true)
+    setRemoveError(null)
+    try {
+      await removeLibraryBook(detail.libraryBookId)
+      if (!isMountedRef.current) return
+      setIsConfirmOpen(false)
+      setIsProcessing(false)
+      navigate('/library', { replace: true })
+    } catch (error) {
+      // unmount 이후 setState 방지 (브라우저 뒤로가기 등)
+      if (!isMountedRef.current) return
+      setRemoveError(error instanceof Error ? error.message : '서재에서 제거하지 못했습니다.')
+      setIsProcessing(false)
+    }
+  }
+
+  const openRemoveConfirm = () => {
+    setRemoveError(null)
+    pendingActionRef.current = 'remove'
+    setIsMenuOpen(false)
+  }
+
+  // 액션시트가 닫힌 직후, 보류된 다음 단계가 있으면 실행 (Dialog 동시 활성 회피)
+  const handleMenuOpenChange = (open: boolean) => {
+    setIsMenuOpen(open)
+    if (!open && pendingActionRef.current === 'remove') {
+      pendingActionRef.current = null
+      // requestAnimationFrame으로 Radix Dialog가 unmount/포커스 복귀를 마친 다음 프레임에 confirm을 띄운다.
+      requestAnimationFrame(() => {
+        if (isMountedRef.current) setIsConfirmOpen(true)
+      })
+    }
+  }
+
   // 백엔드 enum이 미지원 값이어도 페이지가 크래시하지 않도록 방어
   const frontStatus: ReadingStatus | undefined = backendToFrontStatus[detail.status]
   const status = frontStatus ? statusLabel[frontStatus] : null
@@ -130,9 +193,9 @@ export default function LibraryBookDetailPage() {
         rightAction={
           <button
             type="button"
-            disabled
-            aria-label="더보기 (준비 중)"
-            className="flex size-10 items-center justify-center rounded-full text-primary/40"
+            onClick={() => setIsMenuOpen(true)}
+            aria-label="더보기"
+            className="flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
           >
             <span className="material-symbols-outlined">more_vert</span>
           </button>
@@ -262,6 +325,82 @@ export default function LibraryBookDetailPage() {
           </Link>
         </section>
       </main>
+
+      {/* 더보기 액션시트 (TODO(L4): 독서 상태 변경 / 감상 쓰기 항목 추가 예정) */}
+      <Dialog open={isMenuOpen} onOpenChange={handleMenuOpenChange}>
+        {/* pt-12: Dialog 내장 X 닫기 버튼(우상단)이 첫 메뉴 항목과 겹치지 않도록 여백 확보 */}
+        <DialogContent className="max-w-sm gap-0 p-0 pt-12">
+          <DialogHeader className="sr-only">
+            <DialogTitle>서재 도서 액션</DialogTitle>
+            <DialogDescription>이 서재 도서에 대해 수행할 동작을 선택하세요.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col">
+            <button
+              type="button"
+              onClick={openRemoveConfirm}
+              className="flex items-center gap-3 px-6 py-4 text-left text-base font-semibold text-destructive transition-colors hover:bg-destructive/5"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
+                delete
+              </span>
+              서재에서 제거
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 제거 확인 다이얼로그 */}
+      <Dialog
+        open={isConfirmOpen}
+        onOpenChange={open => {
+          if (isProcessing && !open) return
+          setIsConfirmOpen(open)
+        }}
+      >
+        <DialogContent
+          aria-busy={isProcessing}
+          onInteractOutside={e => {
+            if (isProcessing) e.preventDefault()
+          }}
+          onEscapeKeyDown={e => {
+            if (isProcessing) e.preventDefault()
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>서재에서 제거하시겠습니까?</DialogTitle>
+            <DialogDescription>
+              제거하면 이 도서의 독서 기록과 감상이 모두 삭제될 수 있으며, 되돌릴 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          {removeError && (
+            <p
+              role="alert"
+              aria-atomic="true"
+              className="rounded-lg bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
+            >
+              {removeError}
+            </p>
+          )}
+          <DialogFooter className="gap-2">
+            <button
+              type="button"
+              onClick={() => setIsConfirmOpen(false)}
+              disabled={isProcessing}
+              className="rounded-lg border border-primary/20 bg-card px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-primary/5 disabled:opacity-60"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmRemove}
+              disabled={isProcessing}
+              className="rounded-lg bg-destructive px-5 py-3 text-sm font-semibold text-destructive-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isProcessing ? '처리 중...' : '제거하기'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
