@@ -1,17 +1,3 @@
-// 공통 API 응답 타입
-export interface ApiResponse<T> {
-  data: T
-  message: string
-  status: number
-}
-
-// 페이지네이션
-export interface PageResponse<T> {
-  content: T[]
-  hasNext: boolean
-  nextCursor?: string
-}
-
 // 유저
 export interface User {
   id: number
