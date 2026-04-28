@@ -273,7 +273,7 @@ export default function SettingsPage() {
           <div className="text-center text-primary/20">
             <div className="mb-2 flex items-center justify-center gap-2">
               <span className="material-symbols-outlined text-[18px]">menu_book</span>
-              <span className="text-2xl italic">BookLog</span>
+              <span className="text-2xl italic">Shelfeed</span>
             </div>
             <p className="text-sm uppercase tracking-wider">Version 2.4.0</p>
           </div>

@@ -70,7 +70,7 @@ export default function OnboardingPage() {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Header */}
       <header className="flex items-center justify-between p-6">
-        <h1 className="text-2xl font-bold tracking-tight text-primary">BookLog</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
         <button onClick={completeOnboarding} className="text-sm font-medium text-primary/60">
           건너뛰기
         </button>

@@ -119,7 +119,7 @@ export default function MyProfilePage() {
           <div className="grid grid-cols-3 items-center px-4 py-3">
             <div />
             <div className="flex justify-center">
-              <h1 className="text-2xl font-bold tracking-tight text-primary">BookLog</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
             </div>
             <div />
           </div>
@@ -141,7 +141,7 @@ export default function MyProfilePage() {
           <div className="grid grid-cols-3 items-center px-4 py-3">
             <div />
             <div className="flex justify-center">
-              <h1 className="text-2xl font-bold tracking-tight text-primary">BookLog</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
             </div>
             <div />
           </div>
@@ -180,7 +180,7 @@ export default function MyProfilePage() {
           </div>
 
           <div className="flex justify-center">
-            <h1 className="text-2xl font-bold tracking-tight text-primary">BookLog</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
           </div>
 
           <div className="flex justify-end">

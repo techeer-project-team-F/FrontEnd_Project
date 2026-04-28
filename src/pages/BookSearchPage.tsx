@@ -5,7 +5,7 @@ import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
 import { searchBooks, type BookSummary } from '@/api/book'
 
-const RECENT_KEYWORDS_KEY = 'booklog-recent-keywords'
+const RECENT_KEYWORDS_KEY = 'shelfeed-recent-keywords'
 const MAX_RECENT_KEYWORDS = 10
 
 function loadRecentKeywords(): string[] {
@@ -198,7 +198,7 @@ export default function BookSearchPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <AppHeader title="BookLog" showBack />
+      <AppHeader title="Shelfeed" showBack />
 
       {/* Search Bar */}
       <div className="border-b border-border px-4 py-3" role="search">

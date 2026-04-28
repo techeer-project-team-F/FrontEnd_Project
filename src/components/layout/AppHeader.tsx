@@ -9,7 +9,7 @@ interface AppHeaderProps {
 }
 
 export default function AppHeader({
-  title = 'BookLog',
+  title = 'Shelfeed',
   showBack = false,
   rightAction,
   className,

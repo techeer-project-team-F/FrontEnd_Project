@@ -121,7 +121,7 @@ export default function EmailVerificationPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="flex items-center justify-center border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md">
-        <h1 className="text-xl font-bold tracking-tight text-primary">BookLog</h1>
+        <h1 className="text-xl font-bold tracking-tight text-primary">Shelfeed</h1>
       </header>
 
       <main className="flex flex-1 flex-col items-center px-6 pt-16">
