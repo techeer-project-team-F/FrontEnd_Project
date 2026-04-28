@@ -115,7 +115,7 @@ export default function SettingsPage() {
     setVerificationError(null)
     try {
       await resendEmailCode(user.email)
-      navigate('/verify-email', { state: { email: user.email } })
+      navigate('/verify-email', { state: { email: user.email, from: 'settings' } })
     } catch (error) {
       setVerificationError(
         error instanceof Error ? error.message : '인증 코드 발송에 실패했습니다.'

@@ -7,7 +7,10 @@ export default function EmailVerificationPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const userEmail = useAuthStore(state => state.user?.email)
-  const email = (location.state as { email?: string } | null)?.email ?? userEmail
+  const navState = location.state as { email?: string; from?: 'signup' | 'settings' } | null
+  const email = navState?.email ?? userEmail
+  // 회원가입 직후 진입한 경우만 "건너뛰기" 패턴, 그 외(설정에서 진입 등)는 뒤로가기 아이콘
+  const fromSignup = navState?.from === 'signup'
 
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [isVerifying, setIsVerifying] = useState(false)
@@ -120,8 +123,31 @@ export default function EmailVerificationPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="flex items-center justify-center border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md">
-        <h1 className="text-xl font-bold tracking-tight text-primary">Shelfeed</h1>
+      <header className="grid grid-cols-3 items-center border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md">
+        <div className="flex justify-start">
+          {!fromSignup && (
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              aria-label="이전 페이지로 돌아가기"
+              className="flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
+            >
+              <span className="material-symbols-outlined">arrow_back</span>
+            </button>
+          )}
+        </div>
+        <h1 className="text-center text-xl font-bold tracking-tight text-primary">Shelfeed</h1>
+        <div className="flex justify-end">
+          {fromSignup && (
+            <button
+              type="button"
+              onClick={() => navigate('/', { replace: true })}
+              className="rounded-full px-3 py-1.5 text-sm font-medium text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary"
+            >
+              건너뛰기
+            </button>
+          )}
+        </div>
       </header>
 
       <main className="flex flex-1 flex-col items-center px-6 pt-16">
