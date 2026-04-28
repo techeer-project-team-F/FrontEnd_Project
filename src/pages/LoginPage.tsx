@@ -81,7 +81,7 @@ export default function LoginPage() {
       {/* Header */}
       <header className="flex w-full items-center justify-center py-16">
         <div className="flex flex-col items-center gap-2">
-          <h1 className="text-4xl font-bold tracking-tight text-primary">BookLog</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-primary">Shelfeed</h1>
           <div className="h-px w-8 bg-primary/30" />
         </div>
       </header>

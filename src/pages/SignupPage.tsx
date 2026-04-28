@@ -157,7 +157,7 @@ export default function SignupPage() {
           <span className="material-symbols-outlined text-[24px]">arrow_back</span>
         </button>
         <h2 className="flex-1 pr-12 text-center text-lg font-bold leading-tight tracking-tight">
-          {step === 1 ? '회원가입' : 'BookLog'}
+          {step === 1 ? '회원가입' : 'Shelfeed'}
         </h2>
       </div>
 
@@ -178,7 +178,7 @@ export default function SignupPage() {
           {/* Step 1: 계정 정보 */}
           <div className="px-4 pb-3 pt-6">
             <h1 className="text-[32px] font-bold leading-tight tracking-tight">
-              BookLog에 오신 것을 환영합니다
+              Shelfeed에 오신 것을 환영합니다
             </h1>
             <p className="pt-2 text-base text-muted-foreground">
               먼저 로그인에 사용할 계정 정보를 입력해주세요.

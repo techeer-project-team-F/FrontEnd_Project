@@ -87,7 +87,7 @@ export default function BookDetailPage() {
   if (isLoading) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
-        <AppHeader title="BookLog" showBack />
+        <AppHeader title="Shelfeed" showBack />
         <main aria-busy="true" className="flex flex-1 items-center justify-center pb-24">
           <p role="status" className="text-sm text-muted-foreground">
             불러오는 중...
@@ -101,7 +101,7 @@ export default function BookDetailPage() {
   if (errorMessage || !book) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
-        <AppHeader title="BookLog" showBack />
+        <AppHeader title="Shelfeed" showBack />
         <main className="flex flex-1 flex-col items-center justify-center gap-4 pb-24">
           <span className="material-symbols-outlined text-6xl text-muted-foreground/30">
             search_off
@@ -149,7 +149,7 @@ export default function BookDetailPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <AppHeader
-        title="BookLog"
+        title="Shelfeed"
         showBack
         rightAction={
           <button
