@@ -6,6 +6,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { signup, checkEmail, checkNickname } from '@/api/auth'
 import { PASSWORD_REGEX } from '@/constants/validation'
+import type { EmailVerifyLocationState } from '@/pages/EmailVerificationPage'
 
 const step1Schema = z
   .object({
@@ -133,7 +134,8 @@ export default function SignupPage() {
         },
         result.accessToken
       )
-      navigate('/verify-email', { replace: true, state: { email, from: 'signup' } })
+      const verifyState: EmailVerifyLocationState = { email, from: 'signup' }
+      navigate('/verify-email', { replace: true, state: verifyState })
     } catch (error) {
       setStep2ErrorMessage(error instanceof Error ? error.message : '회원가입에 실패했습니다.')
     } finally {

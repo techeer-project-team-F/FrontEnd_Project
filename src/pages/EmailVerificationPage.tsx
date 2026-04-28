@@ -3,11 +3,19 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { verifyEmail, resendEmailCode } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 
+// 진입 경로별로 EmailVerificationPage가 다른 탈출 UI를 노출하기 위한 식별자.
+// sender(SignupPage/SettingsPage)와 receiver(이 파일)가 동일한 union을 공유해 오타 시 컴파일 단계에서 차단.
+export type EmailVerifyEntryFrom = 'signup' | 'settings'
+export interface EmailVerifyLocationState {
+  email?: string
+  from?: EmailVerifyEntryFrom
+}
+
 export default function EmailVerificationPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const userEmail = useAuthStore(state => state.user?.email)
-  const navState = location.state as { email?: string; from?: 'signup' | 'settings' } | null
+  const navState = location.state as EmailVerifyLocationState | null
   const email = navState?.email ?? userEmail
   // 회원가입 직후 진입한 경우만 "건너뛰기" 패턴, 그 외(설정에서 진입 등)는 뒤로가기 아이콘
   const fromSignup = navState?.from === 'signup'
@@ -123,6 +131,7 @@ export default function EmailVerificationPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
+      {/* AppHeader 대신 자체 헤더: AppHeader의 우측 rightAction 슬롯이 w-10으로 고정되어 "건너뛰기" 텍스트가 잘리므로 grid 3분할 직접 구성 */}
       <header className="grid grid-cols-3 items-center border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md">
         <div className="flex justify-start">
           {!fromSignup && (
@@ -142,6 +151,8 @@ export default function EmailVerificationPage() {
             <button
               type="button"
               onClick={() => navigate('/', { replace: true })}
+              aria-label="이메일 인증 건너뛰고 홈으로 이동"
+              // SignupPage가 verify-email로 replace 이동 + 여기서 home으로 replace 이동 → 회원가입/인증 페이지가 history에 남지 않아 뒤로가기로 재진입 불가 (의도)
               className="rounded-full px-3 py-1.5 text-sm font-medium text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary"
             >
               건너뛰기
