@@ -262,8 +262,7 @@ export default function HomeFeedPage() {
 
             {items.map(memo => (
               <div key={memo.id} className="p-4 pt-4 first:pt-4 [&:not(:first-child)]:pt-0">
-                {/* TODO(Review 도메인 완료 시 제거): 동료 담당으로 작업 중이라 카드 클릭 → /review/:id 이동을 임시 비활성 */}
-                <ReviewCard review={memo} disableLink />
+                <ReviewCard review={memo} />
               </div>
             ))}
 
