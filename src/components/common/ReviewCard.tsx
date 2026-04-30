@@ -7,9 +7,6 @@ import StarRating from './StarRating'
 interface ReviewCardProps {
   review: Memo
   className?: string
-  // TODO(Review 도메인 완료 시 제거): Review 상세 페이지가 동료 담당으로 작업 중이라
-  // 임시로 카드 클릭에 의한 /review/:id 이동을 막는다.
-  disableLink?: boolean
 }
 
 const statusLabel: Record<string, { text: string; variant: 'solid' | 'outline' }> = {
@@ -19,7 +16,7 @@ const statusLabel: Record<string, { text: string; variant: 'solid' | 'outline' }
   stopped: { text: '중단', variant: 'outline' },
 }
 
-export default function ReviewCard({ review, className, disableLink = false }: ReviewCardProps) {
+export default function ReviewCard({ review, className }: ReviewCardProps) {
   const [spoilerRevealed, setSpoilerRevealed] = useState(false)
   const [liked, setLiked] = useState(review.isLiked)
   const [likeCount, setLikeCount] = useState(review.likeCount)
@@ -150,9 +147,6 @@ export default function ReviewCard({ review, className, disableLink = false }: R
     </div>
   )
 
-  if (disableLink) {
-    return <div className={cardClassName}>{inner}</div>
-  }
   return (
     <Link to={`/review/${review.id}`} className={cardClassName}>
       {inner}
