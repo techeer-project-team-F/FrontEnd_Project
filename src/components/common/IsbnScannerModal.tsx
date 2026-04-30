@@ -202,6 +202,9 @@ export default function IsbnScannerModal({
         setStatus('running')
       } catch (error) {
         if (isStale()) return // stale 호출의 에러는 표시 안 함
+        // 실패 지점까지 할당됐을 수 있는 stream/video.srcObject/controls를 정리해 카메라 LED를 즉시 끔.
+        // stopAll은 idempotent — 아직 할당되지 않은 ref는 no-op
+        stopAll()
         if (!(error instanceof DOMException)) {
           setStatus('error')
           return
@@ -227,7 +230,7 @@ export default function IsbnScannerModal({
         }
       }
     },
-    [handleDetected]
+    [handleDetected, stopAll]
   )
 
   // effect deps 폭주(부모 리렌더 → onDetected 새 참조 → handleDetected/startStream 재생성 → 카메라 재시작) 방지를 위해
