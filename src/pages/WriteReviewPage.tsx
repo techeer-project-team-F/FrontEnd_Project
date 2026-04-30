@@ -1,40 +1,104 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import axios from 'axios'
+import { getBook, type BookDetail } from '@/api/book'
+import { createReview } from '@/api/review'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
-import { mockBooks } from '@/mocks/data'
 
 export default function WriteReviewPage() {
   const { bookId } = useParams()
   const navigate = useNavigate()
-  const book = bookId ? mockBooks.find(item => item.isbn === bookId) : undefined
 
+  const [book, setBook] = useState<BookDetail | null>(null)
   const [rating, setRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
   const [quoteText, setQuoteText] = useState('')
   const [isQuoteEditorOpen, setIsQuoteEditorOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  if (!bookId) {
+  useEffect(() => {
+    const isValid = /^\d+$/.test(bookId ?? '')
+    if (!isValid) {
+      setErrorMessage(
+        bookId ? '잘못된 도서 ID입니다.' : '도서를 먼저 선택하면 감상을 작성할 수 있어요.'
+      )
+      setBook(null)
+      setIsLoading(false)
+      return
+    }
+
+    const numericBookId = parseInt(bookId!, 10)
+    const controller = new AbortController()
+    setIsLoading(true)
+    setErrorMessage(null)
+    ;(async () => {
+      try {
+        const result = await getBook(numericBookId, controller.signal)
+        if (controller.signal.aborted) return
+        setBook(result)
+      } catch (error) {
+        if (axios.isCancel(error) || controller.signal.aborted) return
+        setErrorMessage(error instanceof Error ? error.message : '도서를 불러오지 못했습니다.')
+        setBook(null)
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false)
+      }
+    })()
+
+    return () => controller.abort()
+  }, [bookId])
+
+  const handleSubmit = async () => {
+    const isValid = /^\d+$/.test(bookId ?? '')
+    const trimmedContent = reviewText.trim()
+    const trimmedQuote = quoteText.trim()
+
+    if (!isValid || !book) {
+      setErrorMessage('도서 정보가 올바르지 않습니다.')
+      return
+    }
+
+    if (!trimmedContent) {
+      setErrorMessage('감상 내용을 입력해주세요.')
+      return
+    }
+
+    setIsSubmitting(true)
+    setErrorMessage(null)
+    try {
+      const result = await createReview({
+        bookId: parseInt(bookId!, 10),
+        content: trimmedContent,
+        rating,
+        ...(trimmedQuote ? { quote: trimmedQuote } : {}),
+        isSpoiler: false,
+      })
+      navigate(`/review/${result.reviewId}`, { replace: true })
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '감상을 작성하지 못했습니다.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isLoading) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <AppHeader title="감상 작성" showBack />
-        <main className="flex flex-1 flex-col items-center justify-center gap-4 px-8 pb-24">
-          <p className="text-center text-sm text-muted-foreground">
-            도서를 먼저 선택하면 해당 책 기준으로 감상을 작성할 수 있어요.
+        <main aria-busy="true" className="flex flex-1 items-center justify-center pb-24">
+          <p role="status" className="text-sm text-muted-foreground">
+            불러오는 중...
           </p>
-          <button
-            onClick={() => navigate(-1)}
-            className="rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground"
-          >
-            돌아가기
-          </button>
         </main>
         <BottomNav />
       </div>
     )
   }
 
-  if (!book) {
+  if (errorMessage || !book) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <AppHeader title="감상 작성" showBack />
@@ -43,7 +107,11 @@ export default function WriteReviewPage() {
             search_off
           </span>
           <p className="text-lg font-bold text-muted-foreground">도서를 찾을 수 없습니다</p>
+          <p role="alert" className="max-w-[280px] text-center text-sm text-muted-foreground">
+            {errorMessage ?? '도서 정보를 불러올 수 없습니다.'}
+          </p>
           <button
+            type="button"
             onClick={() => navigate(-1)}
             className="rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground"
           >
@@ -65,7 +133,19 @@ export default function WriteReviewPage() {
           <div className="flex items-center gap-4">
             <div className="flex h-24 w-16 shrink-0 items-center justify-center rounded-2xl bg-card shadow-sm">
               <div className="h-20 w-12 overflow-hidden rounded-md border border-primary/10 bg-primary/5">
-                <img src={book.coverImageUrl} alt={book.title} className="size-full object-cover" />
+                {book.coverImageUrl ? (
+                  <img
+                    src={book.coverImageUrl}
+                    alt={book.title}
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <div className="flex size-full items-center justify-center">
+                    <span className="material-symbols-outlined text-3xl text-muted-foreground/30">
+                      menu_book
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -148,18 +228,27 @@ export default function WriteReviewPage() {
 
         {/* Action Buttons */}
         <section className="px-8 pb-6 pt-2">
+          {errorMessage && (
+            <p role="alert" className="mb-3 text-sm font-semibold text-destructive">
+              {errorMessage}
+            </p>
+          )}
+
           <div className="flex gap-3">
             <button
               type="button"
+              disabled={isSubmitting}
               className="h-14 flex-1 rounded-full border-2 border-primary bg-background text-base font-bold text-primary transition-colors hover:bg-primary/5"
             >
               임시저장
             </button>
             <button
               type="button"
-              className="h-14 flex-[1.7] rounded-full bg-primary text-base font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="h-14 flex-[1.7] rounded-full bg-primary text-base font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              게시하기
+              {isSubmitting ? '게시 중...' : '게시하기'}
             </button>
           </div>
         </section>
