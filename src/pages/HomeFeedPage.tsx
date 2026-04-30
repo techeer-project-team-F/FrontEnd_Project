@@ -9,9 +9,20 @@ import ReviewCard from '@/components/common/ReviewCard'
 
 type TabValue = 'following' | 'recommend'
 
-// 백엔드 FeedItem을 ReviewCard가 받는 Memo 형태로 매핑.
-// Memo의 일부 필드(book.isbn/publisher, author.followerCount/followingCount)는 ReviewCard가 사용하지 않으므로
-// 빈 값/0으로 채운다 — 후속 리팩터로 ReviewCard prop을 더 단순한 형태로 분리하면 제거 가능.
+/**
+ * 백엔드 `FeedItem` 응답을 `ReviewCard`가 소비하는 `Memo` 형태로 매핑한다.
+ *
+ * `Memo`는 본래 단일 감상 도메인 모델이라 `book.isbn`, `book.publisher`,
+ * `author.followerCount`, `author.followingCount` 등 피드 응답에는 없는 필드를
+ * 가지고 있다. 이 함수는 해당 필드를 빈 값/0으로 채워 카드 렌더링에만 필요한
+ * 최소 정보를 안전하게 전달한다.
+ *
+ * @remarks 후속 리팩터에서 ReviewCard의 prop을 피드 전용 슬림 타입으로 쪼개면
+ * 이 변환 함수 자체를 제거할 수 있다.
+ *
+ * @param item 백엔드 `/api/v1/feed/following` 응답의 단일 피드 아이템
+ * @returns ReviewCard가 그대로 받을 수 있는 `Memo` 객체
+ */
 function toMemo(item: FeedItem): Memo {
   return {
     id: item.review.reviewId,
@@ -39,6 +50,26 @@ function toMemo(item: FeedItem): Memo {
   }
 }
 
+/**
+ * 홈 피드 페이지.
+ *
+ * - 팔로잉 탭: 사용자가 팔로우한 유저들의 감상을 cursor 기반으로 페이지네이션.
+ *   `IntersectionObserver`로 sentinel을 감지하여 무한스크롤로 자연스럽게 다음 페이지 로딩.
+ * - 추천 탭: 백엔드 미구현으로 placeholder만 표시. 탭 전환 시 in-flight 요청을 즉시
+ *   abort하고 상태를 초기화한다.
+ *
+ * **데이터 흐름**:
+ * 1. 마운트 또는 탭 전환 시 첫 페이지(`getFollowingFeed({ cursor: null })`) 요청
+ * 2. sentinel이 viewport 200px 안으로 들어오면 다음 페이지 요청
+ * 3. 응답 도중 탭이 바뀌면 stale guard로 결과 폐기
+ *
+ * **상태 동기화**:
+ * - `stateRef`로 observer 콜백에서 최신 state를 안전하게 읽어 deps 폭주를 회피
+ * - `moreControllerRef`로 진행 중인 추가 로딩 요청을 새 요청 시 명시적으로 취소
+ * - `loadMoreError` 발생 시 observer 콜백이 자동 재시도하지 않고 사용자가 "다시 불러오기"로 명시 재시도
+ *
+ * @returns 헤더(로고/알림) + 탭(팔로잉/추천) + 피드 리스트 + BottomNav를 렌더링하는 React 엘리먼트
+ */
 export default function HomeFeedPage() {
   const [activeTab, setActiveTab] = useState<TabValue>('following')
 
@@ -112,6 +143,17 @@ export default function HomeFeedPage() {
     }
   }, [activeTab])
 
+  /**
+   * 다음 페이지를 cursor 기반으로 추가 로딩한다.
+   *
+   * - `stateRef`에서 최신 `nextCursor`/`hasNext`/탭 상태를 읽어 stale closure를 회피
+   * - 진행 중인 이전 추가 로딩 요청은 새 `AbortController`로 즉시 취소
+   * - 응답이 도착했을 때 사용자가 이미 다른 탭으로 이동했다면 결과 폐기
+   * - cancel은 `_helpers.ts`의 `normalizeAxiosError`가 rethrow하므로 `axios.isCancel`로 분기
+   *
+   * @remarks observer 콜백과 retry 버튼이 공유 호출하므로 useCallback으로 안정화.
+   * deps를 비워두는 이유는 stateRef로 모든 최신 상태에 접근하기 때문.
+   */
   const fetchMore = useCallback(async () => {
     const s = stateRef.current
     if (s.activeTab !== 'following') return
@@ -144,7 +186,18 @@ export default function HomeFeedPage() {
     }
   }, [])
 
-  // sentinel ref callback: 조건부 렌더된 sentinel 마운트/언마운트에 따라 observer 재부착이 자동
+  /**
+   * sentinel DOM 노드에 부착되는 ref callback.
+   *
+   * 조건부로 렌더되는 sentinel(`hasNext === true`일 때만 표시)의 마운트/언마운트에
+   * 따라 `IntersectionObserver`를 자동으로 재부착한다. ref가 null이면 기존 observer를
+   * 정리하고 새 노드가 들어오면 새 observer를 만들어 observe.
+   *
+   * - `entries[0]?.isIntersecting`만 의미 있는 조건 (다른 entries는 발생 가능성 없음)
+   * - `loadMoreError`가 있으면 자동 재시도하지 않고 사용자에게 명시 재시도 권한을 위임
+   *
+   * @param node sentinel `<div>` DOM 요소 (조건부 렌더로 null일 수 있음)
+   */
   const sentinelRef = useCallback(
     (node: HTMLDivElement | null) => {
       observerRef.current?.disconnect()
@@ -168,6 +221,13 @@ export default function HomeFeedPage() {
 
   useEffect(() => () => observerRef.current?.disconnect(), [])
 
+  /**
+   * 추가 로딩 실패("다시 불러오기" 버튼) 핸들러.
+   *
+   * `loadMoreError` 상태를 초기화하여 observer가 다시 sentinel 교차에 반응할 수 있도록
+   * 만든 뒤 `fetchMore()`로 즉시 재요청한다. 자동 재시도와 분리한 이유는 무한 재시도
+   * 루프(에러 → observer 콜백 → 에러)를 막기 위함.
+   */
   const retryLoadMore = () => {
     setLoadMoreError(null)
     fetchMore()
