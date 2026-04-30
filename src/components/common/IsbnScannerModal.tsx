@@ -39,18 +39,39 @@ export default function IsbnScannerModal({
 }: IsbnScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  // ZXing 인스턴스. 정확한 타입은 dynamic import 결과에서만 알 수 있어 unknown으로 둠
-  const readerRef = useRef<{ reset: () => void } | null>(null)
+  // @zxing/browser v0.2 API: decodeFromVideoElement가 IScannerControls를 반환하고 stop()으로 정리
+  const controlsRef = useRef<{ stop: () => void } | null>(null)
+  // ZXing이 stop() 직후 1~2 프레임 더 콜백을 호출할 수 있어, 첫 인식 후 후속 호출을 잠금으로 차단
+  const detectedRef = useRef(false)
+  // 첫 인식 → onDetected 사이의 시각 피드백 지연 타이머. 모달 닫힘 시 반드시 clear (다음 오픈에 stale fire 방지)
+  const detectionTimerRef = useRef<number | null>(null)
+  // startStream의 await 진행 중에 cleanup이 끼어들면 이후 단계를 stale로 판정해 자기 산출물을 직접 정리.
+  // stopAll이 호출되면 토큰을 증가시켜 진행 중인 startStream이 자신의 결과를 버리도록 함.
+  const sessionRef = useRef(0)
 
   const [status, setStatus] = useState<ScannerStatus>('initializing')
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null)
   const [flashFeedback, setFlashFeedback] = useState(false)
 
+  // ZXing 콜백에 stable closure를 넘기기 위한 ref. 부모 리렌더로 onDetected가 새로 와도
+  // ZXing 내부 콜백은 항상 최신 핸들러를 호출 (stale closure 방지)
+  const onDetectedRef = useRef(onDetected)
+  const validateRef = useRef(validate)
+  useEffect(() => {
+    onDetectedRef.current = onDetected
+    validateRef.current = validate
+  }, [onDetected, validate])
+
   // 모든 자원 정리. cleanup 누락 시 LED가 켜진 상태로 유지되는 흔한 버그 방지
   const stopAll = useCallback(() => {
-    readerRef.current?.reset()
-    readerRef.current = null
+    sessionRef.current += 1 // 진행 중인 startStream을 stale로 표시
+    if (detectionTimerRef.current != null) {
+      window.clearTimeout(detectionTimerRef.current)
+      detectionTimerRef.current = null
+    }
+    controlsRef.current?.stop()
+    controlsRef.current = null
     streamRef.current?.getTracks().forEach(t => t.stop())
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
@@ -58,19 +79,28 @@ export default function IsbnScannerModal({
 
   const handleDetected = useCallback(
     (isbn: string) => {
-      if (validate && !validate(isbn)) return // 체크섬 불일치 → 계속 스캔
+      if (detectedRef.current) return // 같은 세션의 후속 콜백 — 첫 인식만 통과
+      const validator = validateRef.current
+      if (validator && !validator(isbn)) return // 체크섬 불일치 → 계속 스캔
+      detectedRef.current = true
       setStatus('detected')
       setFlashFeedback(true)
       navigator.vibrate?.(50)
       stopAll()
       // 시각 피드백을 위해 짧게 지연
-      window.setTimeout(() => onDetected(isbn), 200)
+      detectionTimerRef.current = window.setTimeout(() => {
+        detectionTimerRef.current = null
+        onDetectedRef.current(isbn)
+      }, 200)
     },
-    [onDetected, stopAll, validate]
+    [stopAll]
   )
 
   const startStream = useCallback(
     async (deviceId: string | null) => {
+      const mySession = ++sessionRef.current
+      const isStale = () => sessionRef.current !== mySession
+
       try {
         if (!navigator.mediaDevices?.getUserMedia) {
           setStatus('unsupported')
@@ -79,6 +109,7 @@ export default function IsbnScannerModal({
 
         // 기존 스트림 정지 후 새 요청
         streamRef.current?.getTracks().forEach(t => t.stop())
+        streamRef.current = null
 
         const constraints: MediaStreamConstraints = {
           video: deviceId
@@ -90,21 +121,45 @@ export default function IsbnScannerModal({
               },
         }
 
-        const stream = await navigator.mediaDevices.getUserMedia(constraints)
+        let stream: MediaStream
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints)
+        } catch (err) {
+          // 저장된 deviceId가 더 이상 유효하지 않음(USB 분리 등) → facingMode 폴백 후 재시도
+          if (
+            err instanceof DOMException &&
+            err.name === 'OverconstrainedError' &&
+            deviceId != null
+          ) {
+            try {
+              localStorage.removeItem(DEVICE_ID_KEY)
+            } catch {
+              // private 모드 등 — 무시
+            }
+            // 재귀 호출 — 새 sessionRef 토큰으로 처음부터
+            return startStream(null)
+          }
+          throw err
+        }
+
+        if (isStale()) {
+          stream.getTracks().forEach(t => t.stop())
+          return
+        }
         streamRef.current = stream
 
         const video = videoRef.current
         if (!video) {
           stream.getTracks().forEach(t => t.stop())
+          streamRef.current = null
           return
         }
         video.srcObject = stream
-        await video.play().catch(() => {
-          // play() rejection은 사용자가 빠르게 모달을 닫은 경우 발생 — 무시
-        })
+        // video.play()는 ZXing의 decodeFromVideoElement가 내부적으로 처리. 명시 호출 시 "already playing" 경고 발생
 
         // 권한 받은 직후 enumerate (라벨 포함)
         const all = await navigator.mediaDevices.enumerateDevices()
+        if (isStale()) return
         const videoInputs = all.filter(d => d.kind === 'videoinput')
         setDevices(videoInputs)
 
@@ -121,18 +176,32 @@ export default function IsbnScannerModal({
         }
 
         // ZXing lazy import로 메인 번들 영향 최소화
-        const { BrowserMultiFormatReader } = await import('@zxing/browser')
-        const reader = new BrowserMultiFormatReader()
-        readerRef.current = reader
+        const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all(
+          [import('@zxing/browser'), import('@zxing/library')]
+        )
+        if (isStale()) return
 
-        // decodeFromVideoElement는 비디오 엘리먼트에 직접 attach하여 프레임마다 디코딩
-        reader.decodeFromVideoElement(video, result => {
+        // EAN-13만 타겟 (디폴트로 모든 포맷 시도하면 ISBN 바코드 인식이 느리고 자주 실패).
+        // TRY_HARDER: 정확도 우선, 처리 시간 약간 증가 (실시간 스캔에는 충분)
+        const hints = new Map<number, unknown>()
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13])
+        hints.set(DecodeHintType.TRY_HARDER, true)
+        const reader = new BrowserMultiFormatReader(hints)
+
+        // v0.2 API: decodeFromVideoElement는 Promise<IScannerControls>를 반환. controls.stop()으로 정리
+        const controls = await reader.decodeFromVideoElement(video, result => {
           if (!result) return
           handleDetected(result.getText())
         })
+        if (isStale()) {
+          controls.stop()
+          return
+        }
+        controlsRef.current = controls
 
         setStatus('running')
       } catch (error) {
+        if (isStale()) return // stale 호출의 에러는 표시 안 함
         if (!(error instanceof DOMException)) {
           setStatus('error')
           return
@@ -161,30 +230,42 @@ export default function IsbnScannerModal({
     [handleDetected]
   )
 
+  // effect deps 폭주(부모 리렌더 → onDetected 새 참조 → handleDetected/startStream 재생성 → 카메라 재시작) 방지를 위해
+  // startStream/stopAll을 ref에 보관하고 effect는 [open]에만 의존
+  const startStreamRef = useRef(startStream)
+  const stopAllRef = useRef(stopAll)
+  useEffect(() => {
+    startStreamRef.current = startStream
+    stopAllRef.current = stopAll
+  }, [startStream, stopAll])
+
   // 모달 열림 시 시작
   useEffect(() => {
     if (!open) return
+    // 다음 오픈을 위해 잠금 해제 — 새 세션 시작
+    detectedRef.current = false
     setStatus('initializing')
     setFlashFeedback(false)
 
-    // 저장된 deviceId가 enumerate 결과에 있으면 우선 사용 — 첫 시작 시엔 enumerate 전이라 facingMode로 가고,
-    // startStream 내부에서 받은 stream의 settings.deviceId가 저장값과 다르면 한 번 더 교체
     let saved: string | null = null
     try {
       saved = localStorage.getItem(DEVICE_ID_KEY)
     } catch {
       saved = null
     }
-    startStream(saved)
+    startStreamRef.current(saved)
 
     return () => {
-      stopAll()
+      stopAllRef.current()
     }
-  }, [open, startStream, stopAll])
+  }, [open])
 
   // 사용자가 드롭다운에서 카메라 변경
   const handleDeviceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value
+    // 기존 스트림/디코더/타이머 모두 정리 후 새 세션으로 시작
+    stopAll()
+    detectedRef.current = false
     setActiveDeviceId(id)
     setStatus('initializing')
     startStream(id)
@@ -201,7 +282,9 @@ export default function IsbnScannerModal({
       ? STATUS_MESSAGES[status]
       : null
 
-  const showDeviceSelect = devices.length >= 2 && status === 'running'
+  // 빈 deviceId(권한 부여 직후 일부 브라우저)는 select key/value 충돌 방지 위해 제외
+  const selectableDevices = devices.filter(d => d.deviceId)
+  const showDeviceSelect = selectableDevices.length >= 2 && status === 'running'
 
   return (
     <div
@@ -228,7 +311,7 @@ export default function IsbnScannerModal({
             onChange={handleDeviceChange}
             className="max-w-[40vw] truncate rounded-md bg-white/10 px-2 py-1 text-xs text-white outline-none"
           >
-            {devices.map((d, idx) => (
+            {selectableDevices.map((d, idx) => (
               <option key={d.deviceId} value={d.deviceId} className="text-black">
                 {d.label || `카메라 ${idx + 1}`}
               </option>
