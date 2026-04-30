@@ -1,12 +1,42 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
-import { searchBooks, type BookSummary } from '@/api/book'
+import { getBookByIsbn, searchBooks, type BookDetail, type BookSummary } from '@/api/book'
 
 const RECENT_KEYWORDS_KEY = 'shelfeed-recent-keywords'
 const MAX_RECENT_KEYWORDS = 10
+
+// ZXing 의존성을 가진 모달은 사용자가 카메라 버튼을 눌렀을 때만 다운로드
+const IsbnScannerModal = lazy(() => import('@/components/common/IsbnScannerModal'))
+
+const ISBN13_REGEX = /^97[89]\d{10}$/
+
+// EAN-13 체크섬: 1*d0 + 3*d1 + 1*d2 + 3*d3 ... + d12 = 0 (mod 10)
+function isValidIsbn13(value: string): boolean {
+  if (!ISBN13_REGEX.test(value)) return false
+  let sum = 0
+  for (let i = 0; i < 13; i++) {
+    const digit = Number(value[i])
+    sum += i % 2 === 0 ? digit : digit * 3
+  }
+  return sum % 10 === 0
+}
+
+// 도서 상세(BookDetail)를 검색 결과 카드(BookSummary)와 시각적으로 통일
+function isbnResultToSummary(book: BookDetail): BookSummary {
+  return {
+    bookId: book.bookId,
+    isbn13: book.isbn13,
+    title: book.title,
+    author: book.author,
+    publisher: book.publisher,
+    coverImageUrl: book.coverImageUrl,
+    publishedDate: book.publishedDate,
+    inMyLibrary: book.inMyLibrary ?? false,
+  }
+}
 
 function loadRecentKeywords(): string[] {
   try {
@@ -39,8 +69,10 @@ export default function BookSearchPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
 
   const trimmedQuery = searchQuery.trim()
+  const isIsbnMode = isValidIsbn13(trimmedQuery)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const moreControllerRef = useRef<AbortController | null>(null)
 
@@ -83,11 +115,20 @@ export default function BookSearchPage() {
 
     const handle = setTimeout(async () => {
       try {
-        const response = await searchBooks(trimmedQuery, 20, null, controller.signal)
-        if (controller.signal.aborted) return
-        setResults(response.content)
-        setNextCursor(response.nextCursor)
-        setHasNext(response.hasNext)
+        if (isValidIsbn13(trimmedQuery)) {
+          // ISBN 모드: 단일 도서 정확 조회 — 페이지네이션 없음
+          const book = await getBookByIsbn(trimmedQuery, controller.signal)
+          if (controller.signal.aborted) return
+          setResults([isbnResultToSummary(book)])
+          setNextCursor(null)
+          setHasNext(false)
+        } else {
+          const response = await searchBooks(trimmedQuery, 20, null, controller.signal)
+          if (controller.signal.aborted) return
+          setResults(response.content)
+          setNextCursor(response.nextCursor)
+          setHasNext(response.hasNext)
+        }
       } catch (error) {
         if (axios.isCancel(error) || controller.signal.aborted) return
         setErrorMessage(error instanceof Error ? error.message : '검색에 실패했습니다.')
@@ -110,6 +151,8 @@ export default function BookSearchPage() {
   const fetchMore = useCallback(async () => {
     const s = stateRef.current
     if (s.isLoadingMore || s.isLoading || !s.hasNext) return
+    // ISBN 모드는 단일 결과라 추가 로딩 불필요
+    if (isValidIsbn13(s.trimmedQuery)) return
     const requestedQuery = s.trimmedQuery
     const requestedCursor = s.nextCursor
 
@@ -221,9 +264,9 @@ export default function BookSearchPage() {
           />
           <button
             type="button"
-            disabled
-            aria-label="바코드 스캔 (준비 중)"
-            className="flex items-center justify-center pr-4 text-primary/40"
+            onClick={() => setIsScannerOpen(true)}
+            aria-label="바코드 스캔으로 ISBN 검색"
+            className="flex items-center justify-center pr-4 text-primary transition-colors hover:text-primary/70"
           >
             <span className="material-symbols-outlined text-[24px]">barcode_scanner</span>
           </button>
@@ -357,7 +400,7 @@ export default function BookSearchPage() {
               </div>
             )}
 
-            {!hasNext && !isLoadingMore && !loadMoreError && (
+            {!hasNext && !isLoadingMore && !loadMoreError && !isIsbnMode && (
               <p className="py-4 text-center text-xs text-muted-foreground/50">
                 모든 결과를 확인했습니다
               </p>
@@ -367,6 +410,21 @@ export default function BookSearchPage() {
       </main>
 
       <BottomNav />
+
+      {/* 카메라 모달 — lazy import로 메인 번들 영향 최소화 */}
+      <Suspense fallback={null}>
+        <IsbnScannerModal
+          open={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+          validate={isValidIsbn13}
+          onDetected={isbn => {
+            // 스캔 결과를 검색창에 주입 → ISBN 자동 감지 effect가 ISBN 모드로 분기 (단일 진입점)
+            setIsScannerOpen(false)
+            setSearchQuery(isbn)
+            commitKeyword(isbn)
+          }}
+        />
+      </Suspense>
     </div>
   )
 }

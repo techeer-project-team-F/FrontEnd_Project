@@ -37,6 +37,8 @@ export interface BookDetail {
   myLibraryStatus: BackendReadingStatus | null
   myLibraryBookId: number | null
   myReviewId: number | null
+  // ISBN 조회(GET /books/isbn/{isbn13})에서만 채워짐. 도서 상세(GET /books/{bookId})에선 null
+  inMyLibrary: boolean | null
 }
 
 export async function getBook(bookId: number, signal?: AbortSignal): Promise<BookDetail> {
@@ -50,6 +52,21 @@ export async function getBook(bookId: number, signal?: AbortSignal): Promise<Boo
     return data.data
   } catch (error) {
     throw normalizeAxiosError(error, '도서 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
+
+export async function getBookByIsbn(isbn13: string, signal?: AbortSignal): Promise<BookDetail> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<BookDetail>>(
+      `/api/v1/books/isbn/${encodeURIComponent(isbn13)}`,
+      { signal }
+    )
+    if (!data.data) {
+      throw new Error(data.message ?? 'ISBN 조회 응답이 올바르지 않습니다.')
+    }
+    return data.data
+  } catch (error) {
+    throw normalizeAxiosError(error, 'ISBN으로 도서를 찾지 못했습니다. 잠시 후 다시 시도해주세요.')
   }
 }
 
