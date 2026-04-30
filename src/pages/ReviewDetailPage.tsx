@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import axios from 'axios'
+import { getReviewDetail, type ReviewDetail } from '@/api/review'
+import { backendToFrontStatus } from '@/api/library'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
-import { mockBookDetailReviews, mockReviews } from '@/mocks/data'
 import type { ReadingStatus } from '@/types'
 
 const readingStatusLabel: Record<ReadingStatus, string> = {
@@ -21,12 +23,56 @@ const commentTemplates = [
 export default function ReviewDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [liked, setLiked] = useState(false)
-  const allReviews = useMemo(() => [...mockReviews, ...mockBookDetailReviews], [])
   const reviewId = Number(id)
-  const review = allReviews.find(item => item.id === reviewId)
+  const [review, setReview] = useState<ReviewDetail | null>(null)
+  const [liked, setLiked] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  if (!review) {
+  useEffect(() => {
+    if (!Number.isFinite(reviewId)) {
+      setErrorMessage('감상 정보가 올바르지 않습니다.')
+      setIsLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    setIsLoading(true)
+    setErrorMessage(null)
+    ;(async () => {
+      try {
+        const result = await getReviewDetail(reviewId, controller.signal)
+        if (controller.signal.aborted) return
+        setReview(result)
+        setLiked(result.isLiked)
+      } catch (error) {
+        if (axios.isCancel(error) || controller.signal.aborted) return
+        setErrorMessage(error instanceof Error ? error.message : '감상을 불러오지 못했습니다.')
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false)
+      }
+    })()
+
+    return () => controller.abort()
+  }, [reviewId])
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <AppHeader title="감상 상세" showBack />
+
+        <main aria-busy="true" className="flex flex-1 items-center justify-center pb-24">
+          <p role="status" className="text-sm text-muted-foreground">
+            불러오는 중...
+          </p>
+        </main>
+
+        <BottomNav />
+      </div>
+    )
+  }
+
+  if (errorMessage || !review) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <AppHeader title="감상 상세" showBack />
@@ -36,6 +82,11 @@ export default function ReviewDetailPage() {
             search_off
           </span>
           <p className="text-lg font-bold text-muted-foreground">감상을 찾을 수 없습니다</p>
+          {errorMessage && (
+            <p role="alert" className="max-w-[280px] text-center text-sm text-muted-foreground">
+              {errorMessage}
+            </p>
+          )}
           <button
             onClick={() => navigate(-1)}
             className="rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground"
@@ -49,17 +100,26 @@ export default function ReviewDetailPage() {
     )
   }
 
-  const reviewStatus = review.readingStatus ? readingStatusLabel[review.readingStatus] : '기록'
-  const likeCount = review.likeCount + (liked ? 1 : 0)
+  const frontReadingStatus = review.readingStatus
+    ? backendToFrontStatus[review.readingStatus]
+    : undefined
+  const reviewStatus = frontReadingStatus ? readingStatusLabel[frontReadingStatus] : '기록'
+  const likeCount = Math.max(0, review.likeCount + (liked === review.isLiked ? 0 : liked ? 1 : -1))
   const comments = Array.from({ length: Math.min(review.commentCount ?? 0, 3) }, (_, index) => ({
     id: index + 1,
     author: `독자 ${index + 1}`,
     time: `${index + 1}시간 전`,
     content: commentTemplates[index % commentTemplates.length],
   }))
-  const tags = [review.book.author, review.book.publisher, reviewStatus]
-  const quote = review.book.description ?? review.content
-  const quoteSource = review.book.description ? '도서 소개' : '감상 중에서'
+  const tags: string[] =
+    review.tags && review.tags.length > 0
+      ? review.tags
+      : [review.book.author, review.book.publisher, reviewStatus].filter((tag): tag is string =>
+          Boolean(tag)
+        )
+  const quote = review.quote ?? review.book.description ?? review.content
+  const quoteSource = review.quote || !review.book.description ? '감상 중에서' : '도서 소개'
+  const coverImageUrl = review.book.coverImageUrl
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -71,11 +131,17 @@ export default function ReviewDetailPage() {
           <div className="overflow-hidden rounded-[28px] bg-card shadow-sm">
             <div className="bg-muted/30 px-6 py-8">
               <div className="mx-auto aspect-[2/3] w-[62%] max-w-[260px] overflow-hidden rounded-md shadow-xl">
-                <img
-                  src={review.book.coverImageUrl}
-                  alt={review.book.title}
-                  className="size-full object-cover"
-                />
+                {coverImageUrl ? (
+                  <img
+                    src={coverImageUrl}
+                    alt={review.book.title}
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <div className="flex size-full items-center justify-center bg-primary/10 text-primary/35">
+                    <span className="material-symbols-outlined text-5xl">menu_book</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -92,7 +158,7 @@ export default function ReviewDetailPage() {
                   >
                     star
                   </span>
-                  <span>{(review.rating ?? review.book.rating ?? 0).toFixed(1)}</span>
+                  <span>{review.rating.toFixed(1)}</span>
                 </div>
               </div>
 
