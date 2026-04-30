@@ -12,9 +12,12 @@ const authState: {
   accessToken: 'old-access-token',
   isAuthenticated: true,
 }
+// 실제 authStore의 setAuth는 isAuthenticated도 함께 true로 flip하므로 mock도 동일하게.
+// 향후 인터셉터가 isAuthenticated 의존 로직을 추가했을 때 회귀를 잡기 위해 미러링.
 const setAuthMock = vi.fn((user: typeof authState.user, accessToken: string) => {
   authState.user = user
   authState.accessToken = accessToken
+  authState.isAuthenticated = true
 })
 const clearAuthMock = vi.fn(() => {
   authState.user = null
@@ -220,17 +223,11 @@ describe('getRefreshPromise (race condition 큐잉)', () => {
  * 하지 않아도 되어 테스트가 빠르고 결정적.
  */
 describe('apiClient response interceptor — 401 분기', () => {
-  type ErrorHandler = (error: AxiosError) => Promise<unknown>
-
+  // handleApiClientResponseError를 named export로 분리한 뒤로는 axios 내부 handlers
+  // 배열에 의존하지 않고 직접 import하여 테스트한다 (브리틀한 내부 구조 의존 제거)
   async function getErrorHandler() {
     const client = await import('./client')
-    // axios 인터셉터의 내부 handlers 배열에 접근 — 첫 번째 핸들러의 rejected 콜백
-    const handlers = (
-      client.default.interceptors.response as unknown as {
-        handlers: Array<{ rejected: ErrorHandler }>
-      }
-    ).handlers
-    return handlers[0]!.rejected
+    return client.handleApiClientResponseError
   }
 
   function makeAxiosError(
@@ -307,18 +304,68 @@ describe('apiClient response interceptor — 401 분기', () => {
     expect(refreshSpy).not.toHaveBeenCalled()
   })
 
-  it('refresh 실패 → clearAuth + /login 리다이렉트', async () => {
+  it('refresh가 401(만료)로 실패 → clearAuth + /login 리다이렉트', async () => {
     const client = await import('./client')
     const handler = await getErrorHandler()
-    vi.spyOn(client.refreshClient, 'post').mockRejectedValueOnce({
-      response: { status: 401 },
-      isAxiosError: true,
-    })
+    vi.spyOn(client.refreshClient, 'post').mockRejectedValueOnce(
+      Object.assign(new Error('refresh 401'), {
+        isAxiosError: true,
+        response: { status: 401 },
+      })
+    )
 
     const error = makeAxiosError('/api/v1/users/me', 401)
     await expect(handler(error)).rejects.toBeDefined()
     expect(clearAuthMock).toHaveBeenCalledOnce()
     expect(locationStub.href).toBe('/login')
+  })
+
+  it('refresh가 400(쿠키 누락)으로 실패 → clearAuth + /login 리다이렉트', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+    vi.spyOn(client.refreshClient, 'post').mockRejectedValueOnce(
+      Object.assign(new Error('refresh 400'), {
+        isAxiosError: true,
+        response: { status: 400 },
+      })
+    )
+
+    const error = makeAxiosError('/api/v1/users/me', 401)
+    await expect(handler(error)).rejects.toBeDefined()
+    expect(clearAuthMock).toHaveBeenCalledOnce()
+    expect(locationStub.href).toBe('/login')
+  })
+
+  it('refresh가 네트워크 오류로 실패 → 세션 유지, logout 미호출 (CodeRabbit fix)', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+    vi.spyOn(client.refreshClient, 'post').mockRejectedValueOnce(
+      Object.assign(new Error('Network Error'), {
+        isAxiosError: true,
+        // response 없음 → 네트워크 오류
+      })
+    )
+
+    const error = makeAxiosError('/api/v1/users/me', 401)
+    await expect(handler(error)).rejects.toBeDefined()
+    expect(clearAuthMock).not.toHaveBeenCalled()
+    expect(locationStub.href).toBe('')
+  })
+
+  it('refresh가 5xx로 실패 → 세션 유지, logout 미호출 (CodeRabbit fix)', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+    vi.spyOn(client.refreshClient, 'post').mockRejectedValueOnce(
+      Object.assign(new Error('Server Error'), {
+        isAxiosError: true,
+        response: { status: 500 },
+      })
+    )
+
+    const error = makeAxiosError('/api/v1/users/me', 401)
+    await expect(handler(error)).rejects.toBeDefined()
+    expect(clearAuthMock).not.toHaveBeenCalled()
+    expect(locationStub.href).toBe('')
   })
 
   it('refresh 도중 logout 발생 시 setAuth 미호출, 원본 에러 reject (H1 fix)', async () => {

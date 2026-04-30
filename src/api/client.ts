@@ -141,7 +141,24 @@ function isAuthFlowUrl(url: string): boolean {
 }
 
 /**
- * 응답 인터셉터.
+ * Refresh 실패가 인증 자체 문제(refresh token 누락/만료)인지 판단.
+ *
+ * 백엔드 명세상 refresh API는 400(쿠키 누락) / 401(만료)만 인증 문제.
+ * 그 외(네트워크/timeout/5xx)는 일시적 장애일 가능성이 높아 강제 logout은 UX 회귀.
+ * 따라서 이 함수가 true일 때만 logoutAndRedirect를 호출하고, 그 외엔 세션을
+ * 보존한 채 원본 에러만 propagate.
+ */
+function isAuthFailureRefreshError(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false
+  const status = error.response?.status
+  return status === 400 || status === 401
+}
+
+/**
+ * 응답 인터셉터의 에러 핸들러.
+ *
+ * 인터셉터 등록 안에 anonymous로 두지 않고 export하여 단위 테스트가 axios 내부
+ * (interceptors.response.handlers[0].rejected) 접근 없이 직접 호출 가능하도록 한다.
  *
  * 401 응답 흐름:
  * 1. 인증 흐름(login/signup/refresh 등) 호출이거나 이미 한 번 재시도한 요청이면 그대로 reject
@@ -151,49 +168,58 @@ function isAuthFlowUrl(url: string): boolean {
  *      (Authorization 헤더는 요청 인터셉터가 store의 최신 토큰을 자동 부착하므로 명시 부착 불필요)
  *    - 성공이지만 그 사이 logout/계정 전환 → 재시도하지 않고 원본 에러 reject (stale 토큰
  *      주입 방지)
- *    - 실패: clearAuth + /login 리다이렉트
+ *    - refresh 실패가 400/401(인증 문제)이면 clearAuth + /login 리다이렉트
+ *    - refresh 실패가 그 외(네트워크/timeout/5xx)면 세션 유지하고 에러만 propagate
  */
-apiClient.interceptors.response.use(
-  response => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined
-    if (!originalRequest) return Promise.reject(error)
+async function handleApiClientResponseError(error: AxiosError) {
+  const originalRequest = error.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined
+  if (!originalRequest) return Promise.reject(error)
 
-    const requestUrl: string = originalRequest.url ?? ''
-    const status = error.response?.status
+  const requestUrl: string = originalRequest.url ?? ''
+  const status = error.response?.status
 
-    if (
-      status === 401 &&
-      !isAuthFlowUrl(requestUrl) &&
-      !originalRequest._retry &&
-      useAuthStore.getState().isAuthenticated
-    ) {
-      originalRequest._retry = true
-      // refresh 직전의 user id를 스냅샷 — refresh 진행 중 logout/계정 전환 감지용
-      const userBefore = useAuthStore.getState().user
-      try {
-        const newToken = await getRefreshPromise()
-        const stateAfter = useAuthStore.getState()
-        // refresh 도중 사용자가 logout했거나 다른 계정으로 전환된 경우 → 새 토큰을
-        // store에 주입하지 않고 원본 에러를 그대로 reject (토큰/사용자 불일치 방지)
-        if (!stateAfter.isAuthenticated || !stateAfter.user) {
-          return Promise.reject(error)
-        }
-        if (userBefore && stateAfter.user.id !== userBefore.id) {
-          return Promise.reject(error)
-        }
-        useAuthStore.getState().setAuth(stateAfter.user, newToken)
-        return apiClient(originalRequest)
-      } catch (refreshError) {
-        logoutAndRedirect()
-        return Promise.reject(refreshError)
+  if (
+    status === 401 &&
+    !isAuthFlowUrl(requestUrl) &&
+    !originalRequest._retry &&
+    useAuthStore.getState().isAuthenticated
+  ) {
+    originalRequest._retry = true
+    // refresh 직전의 user id를 스냅샷 — refresh 진행 중 logout/계정 전환 감지용
+    const userBefore = useAuthStore.getState().user
+    try {
+      const newToken = await getRefreshPromise()
+      const stateAfter = useAuthStore.getState()
+      // refresh 도중 사용자가 logout했거나 다른 계정으로 전환된 경우 → 새 토큰을
+      // store에 주입하지 않고 원본 에러를 그대로 reject (토큰/사용자 불일치 방지)
+      if (!stateAfter.isAuthenticated || !stateAfter.user) {
+        return Promise.reject(error)
       }
+      if (userBefore && stateAfter.user.id !== userBefore.id) {
+        return Promise.reject(error)
+      }
+      useAuthStore.getState().setAuth(stateAfter.user, newToken)
+      return apiClient(originalRequest)
+    } catch (refreshError) {
+      // 인증 문제(400/401)일 때만 logout. 일시적 네트워크/timeout/5xx에선 세션 유지
+      if (isAuthFailureRefreshError(refreshError)) {
+        logoutAndRedirect()
+      }
+      return Promise.reject(refreshError)
     }
-
-    return Promise.reject(error)
   }
-)
+
+  return Promise.reject(error)
+}
+
+apiClient.interceptors.response.use(response => response, handleApiClientResponseError)
 
 export default apiClient
 // 단위 테스트 전용 export (프로덕션 코드에서 직접 사용 금지)
-export { refreshClient, performRefresh, getRefreshPromise, isAuthFlowUrl }
+export {
+  refreshClient,
+  performRefresh,
+  getRefreshPromise,
+  isAuthFlowUrl,
+  handleApiClientResponseError,
+}
