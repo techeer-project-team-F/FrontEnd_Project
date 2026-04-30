@@ -4,6 +4,7 @@ import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
 import { logout, resendEmailCode } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
+import type { EmailVerifyLocationState } from '@/pages/EmailVerificationPage'
 
 function Toggle({
   checked,
@@ -115,7 +116,8 @@ export default function SettingsPage() {
     setVerificationError(null)
     try {
       await resendEmailCode(user.email)
-      navigate('/verify-email', { state: { email: user.email } })
+      const verifyState: EmailVerifyLocationState = { email: user.email, from: 'settings' }
+      navigate('/verify-email', { state: verifyState })
     } catch (error) {
       setVerificationError(
         error instanceof Error ? error.message : '인증 코드 발송에 실패했습니다.'
