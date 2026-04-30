@@ -1,18 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { AxiosError } from 'axios'
 
-// authStore mock — getState()를 동적으로 제어하기 위해 stateholder 패턴 사용
-const authState = {
+// authStore mock — 모듈 레벨에서 single source of truth로 다루고, 각 테스트는
+// authState 객체를 직접 변경해 다양한 인증 시나리오를 시뮬레이션한다
+const authState: {
+  user: { id: number; nickname: string; email: string } | null
+  accessToken: string | null
+  isAuthenticated: boolean
+} = {
   user: { id: 1, nickname: 'tester', email: 't@t.com' },
   accessToken: 'old-access-token',
   isAuthenticated: true,
 }
-const setAuthMock = vi.fn((user, accessToken) => {
+const setAuthMock = vi.fn((user: typeof authState.user, accessToken: string) => {
   authState.user = user
   authState.accessToken = accessToken
 })
 const clearAuthMock = vi.fn(() => {
-  authState.user = null as unknown as typeof authState.user
-  authState.accessToken = null as unknown as string
+  authState.user = null
+  authState.accessToken = null
   authState.isAuthenticated = false
 })
 
@@ -26,12 +32,15 @@ vi.mock('@/store/authStore', () => ({
   },
 }))
 
-// window.location.href는 jsdom 없이도 mock 가능하도록 stub
-const originalLocation = globalThis.location
+// node 환경엔 window/location이 없으므로 stub. 매 테스트마다 fresh 모듈을 import해
+// 모듈 레벨 state(refreshPromise, isLoggingOut)도 함께 reset.
+// client.ts는 `window.location.href`를 사용하므로 globalThis.window까지 stub해야
+// 실제 할당이 locationStub.href에 반영됨.
 const locationStub = { href: '' }
 beforeEach(() => {
-  // @ts-expect-error — node 환경에서 location 재할당 허용
-  globalThis.location = locationStub
+  vi.resetModules()
+  // @ts-expect-error — node 환경에서 window 재할당 허용 (jsdom 미사용)
+  globalThis.window = { location: locationStub }
   locationStub.href = ''
   authState.user = { id: 1, nickname: 'tester', email: 't@t.com' }
   authState.accessToken = 'old-access-token'
@@ -40,8 +49,8 @@ beforeEach(() => {
   clearAuthMock.mockClear()
 })
 afterEach(() => {
-  // @ts-expect-error — restore
-  globalThis.location = originalLocation
+  // @ts-expect-error — node 환경에서는 원래 window가 없으므로 단순 unset
+  delete globalThis.window
   vi.restoreAllMocks()
 })
 
@@ -62,6 +71,12 @@ describe('isAuthFlowUrl', () => {
     expect(isAuthFlowUrl('/api/v1/users/me')).toBe(false)
     expect(isAuthFlowUrl('/api/v1/books/search')).toBe(false)
     expect(isAuthFlowUrl('/api/v1/feed/following')).toBe(false)
+  })
+
+  it('쿼리스트링에 인증 path 문자열이 포함되어도 path는 일반 path면 false (M1 fix)', async () => {
+    const { isAuthFlowUrl } = await import('./client')
+    expect(isAuthFlowUrl('/api/v1/feed/comments?redirect=/api/v1/auth/login')).toBe(false)
+    expect(isAuthFlowUrl('/api/v1/users/me?from=/api/v1/auth/signup')).toBe(false)
   })
 })
 
@@ -127,7 +142,6 @@ describe('getRefreshPromise (race condition 큐잉)', () => {
         })) as never
     )
 
-    // 5개 요청 동시 발생
     const p1 = client.getRefreshPromise()
     const p2 = client.getRefreshPromise()
     const p3 = client.getRefreshPromise()
@@ -169,7 +183,6 @@ describe('getRefreshPromise (race condition 큐잉)', () => {
     const first = await client.getRefreshPromise()
     expect(first).toBe('token-1')
 
-    // refreshPromise가 null로 reset된 뒤 두 번째 호출은 새 refresh
     const second = await client.getRefreshPromise()
     expect(second).toBe('token-2')
     expect(postSpy).toHaveBeenCalledTimes(2)
@@ -193,9 +206,179 @@ describe('getRefreshPromise (race condition 큐잉)', () => {
 
     await expect(client.getRefreshPromise()).rejects.toBeDefined()
 
-    // 실패 후 refreshPromise null reset 검증 — 두 번째 호출이 새 호출
     const recovered = await client.getRefreshPromise()
     expect(recovered).toBe('recovered-token')
     expect(postSpy).toHaveBeenCalledTimes(2)
+  })
+})
+
+/**
+ * 응답 인터셉터 분기 테스트 (H2 fix).
+ *
+ * apiClient.interceptors.handlers의 두 번째 인자(error handler)를 직접 호출해
+ * 실제 인터셉터 로직을 단위 검증한다. 이 방식이 axios 전체 라이프사이클을 mock
+ * 하지 않아도 되어 테스트가 빠르고 결정적.
+ */
+describe('apiClient response interceptor — 401 분기', () => {
+  type ErrorHandler = (error: AxiosError) => Promise<unknown>
+
+  async function getErrorHandler() {
+    const client = await import('./client')
+    // axios 인터셉터의 내부 handlers 배열에 접근 — 첫 번째 핸들러의 rejected 콜백
+    const handlers = (
+      client.default.interceptors.response as unknown as {
+        handlers: Array<{ rejected: ErrorHandler }>
+      }
+    ).handlers
+    return handlers[0]!.rejected
+  }
+
+  function makeAxiosError(
+    url: string,
+    status: number | undefined,
+    extraConfig: Partial<{ _retry: boolean }> = {}
+  ): AxiosError {
+    return {
+      isAxiosError: true,
+      config: { url, headers: {}, ...extraConfig },
+      response:
+        status != null ? { status, data: {}, headers: {}, config: {}, statusText: '' } : undefined,
+      message: 'mock',
+      name: 'AxiosError',
+      toJSON: () => ({}),
+    } as unknown as AxiosError
+  }
+
+  it('401 + 일반 path + 미시도 + 로그인 상태 → refresh 1회 호출 + 새 토큰으로 setAuth', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+
+    vi.spyOn(client.refreshClient, 'post').mockResolvedValueOnce({
+      data: {
+        status: 'SUCCESS',
+        code: 200,
+        data: { accessToken: 'fresh-token', accessTokenExpiresIn: 3600 },
+      },
+    } as never)
+
+    const error = makeAxiosError('/api/v1/users/me', 401)
+    // 재시도(apiClient(originalRequest))는 실제 axios가 노드 환경에서 네트워크 요청을 시도해
+    // 실패할 수 있으므로 결과는 신경쓰지 않고 setAuth 호출 여부만 검증한다.
+    // axios 1.x의 bound instance는 spy로 가로채기 어려워 retry 자체는 통합테스트로 검증.
+    await handler(error).catch(() => undefined)
+
+    expect(setAuthMock).toHaveBeenCalledOnce()
+    expect(setAuthMock.mock.calls[0]?.[1]).toBe('fresh-token')
+    expect(clearAuthMock).not.toHaveBeenCalled()
+    expect(locationStub.href).toBe('')
+  })
+
+  it('401 + 인증 흐름 path → refresh 시도 안 함, 그대로 reject', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+    const refreshSpy = vi.spyOn(client.refreshClient, 'post')
+
+    const error = makeAxiosError('/api/v1/auth/login', 401)
+    await expect(handler(error)).rejects.toBe(error)
+    expect(refreshSpy).not.toHaveBeenCalled()
+    expect(clearAuthMock).not.toHaveBeenCalled()
+  })
+
+  it('401 + _retry: true (이미 재시도된 요청) → refresh 시도 안 함, 그대로 reject', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+    const refreshSpy = vi.spyOn(client.refreshClient, 'post')
+
+    const error = makeAxiosError('/api/v1/users/me', 401, { _retry: true })
+    await expect(handler(error)).rejects.toBe(error)
+    expect(refreshSpy).not.toHaveBeenCalled()
+  })
+
+  it('401 + 비로그인 상태 → refresh 시도 안 함', async () => {
+    authState.isAuthenticated = false
+    authState.user = null
+    authState.accessToken = null
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+    const refreshSpy = vi.spyOn(client.refreshClient, 'post')
+
+    const error = makeAxiosError('/api/v1/users/me', 401)
+    await expect(handler(error)).rejects.toBe(error)
+    expect(refreshSpy).not.toHaveBeenCalled()
+  })
+
+  it('refresh 실패 → clearAuth + /login 리다이렉트', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+    vi.spyOn(client.refreshClient, 'post').mockRejectedValueOnce({
+      response: { status: 401 },
+      isAxiosError: true,
+    })
+
+    const error = makeAxiosError('/api/v1/users/me', 401)
+    await expect(handler(error)).rejects.toBeDefined()
+    expect(clearAuthMock).toHaveBeenCalledOnce()
+    expect(locationStub.href).toBe('/login')
+  })
+
+  it('refresh 도중 logout 발생 시 setAuth 미호출, 원본 에러 reject (H1 fix)', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+
+    let resolveInner: ((token: string) => void) | undefined
+    const innerPromise = new Promise<string>(resolve => {
+      resolveInner = resolve
+    })
+    vi.spyOn(client.refreshClient, 'post').mockImplementationOnce(
+      () =>
+        innerPromise.then(token => ({
+          data: {
+            status: 'SUCCESS',
+            code: 200,
+            data: { accessToken: token, accessTokenExpiresIn: 3600 },
+          },
+        })) as never
+    )
+
+    const error = makeAxiosError('/api/v1/users/me', 401)
+    const handlerPromise = handler(error)
+
+    // refresh 진행 중 사용자가 logout
+    authState.isAuthenticated = false
+    authState.user = null
+
+    resolveInner!('would-be-stale-token')
+    await expect(handlerPromise).rejects.toBe(error)
+    expect(setAuthMock).not.toHaveBeenCalled()
+  })
+
+  it('refresh 도중 다른 계정으로 전환 시 setAuth 미호출 (H1 fix)', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+
+    let resolveInner: ((token: string) => void) | undefined
+    const innerPromise = new Promise<string>(resolve => {
+      resolveInner = resolve
+    })
+    vi.spyOn(client.refreshClient, 'post').mockImplementationOnce(
+      () =>
+        innerPromise.then(token => ({
+          data: {
+            status: 'SUCCESS',
+            code: 200,
+            data: { accessToken: token, accessTokenExpiresIn: 3600 },
+          },
+        })) as never
+    )
+
+    const error = makeAxiosError('/api/v1/users/me', 401)
+    const handlerPromise = handler(error)
+
+    // refresh 진행 중 다른 계정으로 전환 (id 변경)
+    authState.user = { id: 999, nickname: 'other', email: 'o@o.com' }
+
+    resolveInner!('cross-account-token')
+    await expect(handlerPromise).rejects.toBe(error)
+    expect(setAuthMock).not.toHaveBeenCalled()
   })
 })

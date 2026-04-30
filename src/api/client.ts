@@ -1,5 +1,6 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/store/authStore'
+import type { ApiResponse } from './_helpers'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
@@ -33,13 +34,6 @@ interface TokenRefreshResponse {
   accessTokenExpiresIn: number
 }
 
-interface ApiResponseShape<T> {
-  status: string
-  code: number
-  data?: T
-  message?: string
-}
-
 /**
  * Refresh token 쿠키로 새 access token 발급.
  *
@@ -52,7 +46,7 @@ interface ApiResponseShape<T> {
  * @throws 응답이 200이 아니거나 data가 비어있으면 Error
  */
 async function performRefresh(): Promise<string> {
-  const { data } = await refreshClient.post<ApiResponseShape<TokenRefreshResponse>>(
+  const { data } = await refreshClient.post<ApiResponse<TokenRefreshResponse>>(
     '/api/v1/auth/token/refresh'
   )
   if (!data.data?.accessToken) {
@@ -86,6 +80,14 @@ function getRefreshPromise(): Promise<string> {
 }
 
 /**
+ * 동시 다수 401 실패 시 logoutAndRedirect가 N번 호출되는 것을 막는 가드.
+ *
+ * `clearAuth`는 멱등이지만 `window.location.href` 할당이 여러 번 발생하면 진행 중인
+ * 다른 비동기 작업과의 race를 만들 수 있어 단발화한다.
+ */
+let isLoggingOut = false
+
+/**
  * 사용자가 보호된 페이지에서 인증 만료(refresh 실패 포함) 시 호출.
  *
  * Zustand 인증 상태 초기화 + persist storage 정리 후 로그인 페이지로 강제 이동.
@@ -93,6 +95,8 @@ function getRefreshPromise(): Promise<string> {
  * 사용 시 stale state가 남을 수 있음).
  */
 function logoutAndRedirect() {
+  if (isLoggingOut) return
+  isLoggingOut = true
   useAuthStore.getState().clearAuth()
   window.location.href = '/login'
 }
@@ -127,8 +131,13 @@ const AUTH_FLOW_PATHS = [
   '/api/v1/auth/password',
 ]
 
+/**
+ * 인증 흐름 path 매칭. 쿼리스트링이 path에 인증 path 문자열을 포함하는 false positive를
+ * 막기 위해 path 부분만 잘라 startsWith로 정확 매칭한다.
+ */
 function isAuthFlowUrl(url: string): boolean {
-  return AUTH_FLOW_PATHS.some(p => url.includes(p))
+  const path = url.split('?')[0] ?? url
+  return AUTH_FLOW_PATHS.some(p => path.startsWith(p))
 }
 
 /**
@@ -138,7 +147,10 @@ function isAuthFlowUrl(url: string): boolean {
  * 1. 인증 흐름(login/signup/refresh 등) 호출이거나 이미 한 번 재시도한 요청이면 그대로 reject
  * 2. 비로그인 상태면 그대로 reject (이전 동작 유지 — 보호 라우트 진입 자체를 막지 않음)
  * 3. 그 외엔 _retry 플래그 부여 후 getRefreshPromise()로 새 토큰 획득 시도
- *    - 성공: authStore에 새 토큰 반영, 원래 요청의 Authorization 헤더 갱신, 재시도
+ *    - 성공 + 같은 사용자가 여전히 로그인 상태 → authStore 갱신 후 원래 요청 재시도
+ *      (Authorization 헤더는 요청 인터셉터가 store의 최신 토큰을 자동 부착하므로 명시 부착 불필요)
+ *    - 성공이지만 그 사이 logout/계정 전환 → 재시도하지 않고 원본 에러 reject (stale 토큰
+ *      주입 방지)
  *    - 실패: clearAuth + /login 리다이렉트
  */
 apiClient.interceptors.response.use(
@@ -157,15 +169,20 @@ apiClient.interceptors.response.use(
       useAuthStore.getState().isAuthenticated
     ) {
       originalRequest._retry = true
+      // refresh 직전의 user id를 스냅샷 — refresh 진행 중 logout/계정 전환 감지용
+      const userBefore = useAuthStore.getState().user
       try {
         const newToken = await getRefreshPromise()
-        const user = useAuthStore.getState().user
-        if (user) {
-          useAuthStore.getState().setAuth(user, newToken)
+        const stateAfter = useAuthStore.getState()
+        // refresh 도중 사용자가 logout했거나 다른 계정으로 전환된 경우 → 새 토큰을
+        // store에 주입하지 않고 원본 에러를 그대로 reject (토큰/사용자 불일치 방지)
+        if (!stateAfter.isAuthenticated || !stateAfter.user) {
+          return Promise.reject(error)
         }
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`
+        if (userBefore && stateAfter.user.id !== userBefore.id) {
+          return Promise.reject(error)
         }
+        useAuthStore.getState().setAuth(stateAfter.user, newToken)
         return apiClient(originalRequest)
       } catch (refreshError) {
         logoutAndRedirect()
