@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { cn } from '@/lib/utils'
 import { getFollowingFeed, type FeedItem } from '@/api/feed'
+import { getUnreadNotificationCount } from '@/api/notification'
 import type { Memo } from '@/types'
 import BottomNav from '@/components/layout/BottomNav'
 import ReviewCard from '@/components/common/ReviewCard'
@@ -72,6 +73,15 @@ function toMemo(item: FeedItem): Memo {
  */
 export default function HomeFeedPage() {
   const [activeTab, setActiveTab] = useState<TabValue>('following')
+  /**
+   * 종 아이콘 미읽음 알림 카운트.
+   *
+   * 0이면 뱃지 미렌더, 1+이면 카운트 표시(100+는 "99+"). 조회 실패는 조용히
+   * 무시한다 — 뱃지가 안 뜨는 것은 치명적 에러가 아니고, 피드 화면 자체 동작에
+   * 영향 없음. SSE/폴링은 본 이슈 범위 밖이라 마운트 시점 + 탭 visible 복귀
+   * 시점에만 재조회한다.
+   */
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const [items, setItems] = useState<Memo[]>([])
   const [nextCursor, setNextCursor] = useState<number | null>(null)
@@ -142,6 +152,49 @@ export default function HomeFeedPage() {
       moreControllerRef.current?.abort()
     }
   }, [activeTab])
+
+  /**
+   * 미읽음 알림 개수를 조회해 종 아이콘 뱃지에 반영한다.
+   *
+   * - 마운트 시점 1회 조회 (HomeFeedPage는 `/notifications` 진입 시 unmount되므로,
+   *   복귀 시 자연스럽게 재마운트되어 카운트가 갱신된다).
+   * - `visibilitychange`로 탭이 백그라운드 → 포그라운드로 돌아오면 다시 조회.
+   * - 실패는 조용히 무시 (catch에서 setState 안 함). 뱃지가 안 뜨는 건 치명적이지
+   *   않고, 피드 화면 자체 동작에 영향 없음.
+   * - 진행 중 요청은 페이지 이탈/탭 전환 시 abort.
+   */
+  useEffect(() => {
+    let activeController: AbortController | null = null
+
+    const refetch = () => {
+      activeController?.abort()
+      const controller = new AbortController()
+      activeController = controller
+      ;(async () => {
+        try {
+          const result = await getUnreadNotificationCount(controller.signal)
+          if (controller.signal.aborted) return
+          setUnreadCount(result.unreadCount)
+        } catch (error) {
+          if (axios.isCancel(error) || controller.signal.aborted) return
+          // 조용히 무시 — 뱃지 미표시가 치명적 에러는 아님
+        }
+      })()
+    }
+
+    // [code-review MED fix] bfcache 복구나 일부 브라우저 마운트 직후 visibilitychange가
+    // 다시 fire되어 같은 카운트를 중복 호출하는 케이스를 방지. visible일 때만 첫 fetch.
+    if (document.visibilityState === 'visible') refetch()
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refetch()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      activeController?.abort()
+    }
+  }, [])
 
   /**
    * 다음 페이지를 cursor 기반으로 추가 로딩한다.
@@ -241,9 +294,18 @@ export default function HomeFeedPage() {
           <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
           <Link
             to="/notifications"
-            className="rounded-full p-2 transition-colors hover:bg-primary/5"
+            aria-label={unreadCount > 0 ? `알림 (미읽음 ${unreadCount}개)` : '알림'}
+            className="relative rounded-full p-2 transition-colors hover:bg-primary/5"
           >
             <span className="material-symbols-outlined text-primary">notifications</span>
+            {unreadCount > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute -right-0.5 -top-0.5 flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </Link>
         </div>
         {/* Tabs */}
