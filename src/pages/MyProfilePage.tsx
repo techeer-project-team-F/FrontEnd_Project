@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import BottomNav from '@/components/layout/BottomNav'
 import { getMyProfile, type MyProfile } from '@/api/member'
+import { getMyReviews, type ReviewListItem } from '@/api/review'
+import { formatRelativeTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
 // TODO(M1 후속): Library 통계 API 연동 시 교체 (Wisdom Tower, 연간 독서 스택)
@@ -34,42 +36,17 @@ const categoryStats = [
   { label: '인문 15%', color: '#EEE3D2' },
 ]
 
-// TODO(M1 후속): Review 목록 API 연동 시 교체 (공개 감상 타임라인)
-const publicTimeline = [
-  {
-    id: 1,
-    title: '위대한 개츠비',
-    date: '2024년 6월 15일',
-    summary: '데이지를 향한 개츠비의 맹목적인 열망은 시대를 관통하는 슬픈 낭만이다...',
-    cover:
-      'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=300&q=80',
-    coverBg: '#5E8B7E',
-  },
-  {
-    id: 2,
-    title: '호밀밭의 파수꾼',
-    date: '2024년 5월 28일',
-    summary: '홀든 코필드의 방황이 낯설지 않게 느껴지는 밤. 어른이 된다는 것은 무엇일까.',
-    cover:
-      'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=300&q=80',
-    coverBg: '#D8B08C',
-  },
-  {
-    id: 3,
-    title: '데미안',
-    date: '2024년 5월 10일',
-    summary: '새는 알을 깨고 나오기 위해 투쟁한다. 내 안의 아브락사스를 찾아서.',
-    cover:
-      'https://images.unsplash.com/photo-1526243741027-444d633d7365?auto=format&fit=crop&w=300&q=80',
-    coverBg: '#8A8075',
-  },
-]
-
 export default function MyProfilePage() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState<MyProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [reviews, setReviews] = useState<ReviewListItem[]>([])
+  const [reviewNextCursor, setReviewNextCursor] = useState<number | null>(null)
+  const [hasMoreReviews, setHasMoreReviews] = useState(false)
+  const [isReviewsLoading, setIsReviewsLoading] = useState(true)
+  const [isReviewsLoadingMore, setIsReviewsLoadingMore] = useState(false)
+  const [reviewsErrorMessage, setReviewsErrorMessage] = useState<string | null>(null)
 
   const maxStatValue = Math.max(...monthlyStats.map(item => item.value))
 
@@ -111,6 +88,49 @@ export default function MyProfilePage() {
 
     return () => controller.abort()
   }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setIsReviewsLoading(true)
+    setReviewsErrorMessage(null)
+    ;(async () => {
+      try {
+        const response = await getMyReviews({ cursor: null, signal: controller.signal })
+        if (controller.signal.aborted) return
+        setReviews(response.content)
+        setReviewNextCursor(response.nextCursor)
+        setHasMoreReviews(response.hasNext)
+      } catch (error) {
+        if (axios.isCancel(error) || controller.signal.aborted) return
+        setReviewsErrorMessage(
+          error instanceof Error ? error.message : '감상 목록을 불러오지 못했습니다.'
+        )
+      } finally {
+        if (!controller.signal.aborted) setIsReviewsLoading(false)
+      }
+    })()
+
+    return () => controller.abort()
+  }, [])
+
+  const handleLoadMoreReviews = async () => {
+    if (isReviewsLoadingMore || !hasMoreReviews) return
+
+    setIsReviewsLoadingMore(true)
+    setReviewsErrorMessage(null)
+    try {
+      const response = await getMyReviews({ cursor: reviewNextCursor })
+      setReviews(prev => [...prev, ...response.content])
+      setReviewNextCursor(response.nextCursor)
+      setHasMoreReviews(response.hasNext)
+    } catch (error) {
+      setReviewsErrorMessage(
+        error instanceof Error ? error.message : '감상 목록을 더 불러오지 못했습니다.'
+      )
+    } finally {
+      setIsReviewsLoadingMore(false)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -353,39 +373,92 @@ export default function MyProfilePage() {
           </div>
         </section>
 
-        {/* Public Review Timeline — TODO(M1 후속): Review 목록 API 연동 필요 */}
+        {/* Public Review Timeline */}
         <section className="px-6 pb-10 pt-10">
           <h2 className="mb-5 text-[28px] font-bold tracking-tight text-foreground">
             공개 감상 타임라인
           </h2>
 
-          <div className="space-y-4">
-            {publicTimeline.map(item => (
-              <article
-                key={item.id}
-                className="flex gap-4 rounded-[28px] bg-card p-4 shadow-sm transition-transform hover:scale-[1.01]"
-              >
-                <div
-                  className="flex h-[96px] w-[76px] shrink-0 items-center justify-center rounded-[18px]"
-                  style={{ backgroundColor: item.coverBg }}
+          {isReviewsLoading ? (
+            <p role="status" className="py-8 text-center text-sm text-muted-foreground">
+              감상을 불러오는 중...
+            </p>
+          ) : reviews.length === 0 && !reviewsErrorMessage ? (
+            <div className="rounded-[24px] bg-card px-5 py-8 text-center text-sm text-muted-foreground">
+              아직 공개 감상이 없습니다.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reviews.map(review => (
+                <article
+                  key={review.reviewId}
+                  onClick={() => navigate(`/review/${review.reviewId}`)}
+                  className="flex cursor-pointer gap-4 rounded-[24px] bg-card p-4 shadow-sm transition-colors hover:bg-primary/5"
                 >
-                  <img
-                    src={item.cover}
-                    alt={`${item.title} 표지`}
-                    className="h-[78px] w-[54px] rounded-[10px] object-cover shadow-sm"
-                  />
-                </div>
+                  <div className="flex h-[96px] w-[76px] shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-primary/5">
+                    {review.book.coverImageUrl ? (
+                      <img
+                        src={review.book.coverImageUrl}
+                        alt={`${review.book.title} 표지`}
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <span className="material-symbols-outlined text-3xl text-muted-foreground/30">
+                        menu_book
+                      </span>
+                    )}
+                  </div>
 
-                <div className="min-w-0 flex-1 pt-1">
-                  <h3 className="truncate text-xl font-bold text-foreground">{item.title}</h3>
-                  <p className="mt-1 text-sm font-medium text-primary/40">{item.date}</p>
-                  <p className="mt-3 line-clamp-2 text-base leading-6 text-foreground/65">
-                    {item.summary}
-                  </p>
-                </div>
-              </article>
-            ))}
-          </div>
+                  <div className="min-w-0 flex-1 pt-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="line-clamp-1 text-xl font-bold text-foreground">
+                        {review.book.title}
+                      </h3>
+                      <span className="shrink-0 text-sm font-bold text-primary">
+                        ★ {review.rating.toFixed(1)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-primary/40">
+                      {formatRelativeTime(review.createdAt)}
+                    </p>
+                    <p className="mt-3 line-clamp-2 text-base leading-6 text-foreground/65">
+                      {review.isSpoiler ? '스포일러가 포함된 감상입니다.' : review.content}
+                    </p>
+                    <div className="mt-3 flex items-center gap-4 text-xs font-semibold text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[16px]">favorite</span>
+                        {review.likeCount}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[16px]">chat_bubble</span>
+                        {review.commentCount}
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+
+          {reviewsErrorMessage && (
+            <p
+              role="alert"
+              className="mt-4 rounded-xl bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
+            >
+              {reviewsErrorMessage}
+            </p>
+          )}
+
+          {hasMoreReviews && !isReviewsLoading && (
+            <button
+              type="button"
+              onClick={handleLoadMoreReviews}
+              disabled={isReviewsLoadingMore}
+              className="mt-5 w-full rounded-xl bg-primary/10 py-3 text-sm font-bold text-primary transition-colors hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isReviewsLoadingMore ? '불러오는 중...' : '더 보기'}
+            </button>
+          )}
         </section>
       </main>
 
