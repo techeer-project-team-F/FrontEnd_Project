@@ -183,6 +183,22 @@ export default function BookSearchPage() {
     }
   }, [isIsbnMode, activeTab])
 
+  // [CodeRabbit fix] URL → 컴포넌트 state 단방향 동기화. 사용자 입력으로 인한
+  // state 변경은 아래 "URL 동기화 effect"가 URL에 반영하고, 외부 경로로 URL이
+  // 바뀌는 경우(브라우저 뒤로/앞으로, deep link 직접 진입, 다른 컴포넌트의 navigate)
+  // 본 effect가 그 변경을 컴포넌트에 반영. 같은 값일 때는 setState가 no-op이라
+  // 양방향 effect 사이의 무한 루프는 발생하지 않는다.
+  useEffect(() => {
+    const urlQuery = searchParams.get('q') ?? ''
+    const urlTabRaw = searchParams.get('tab')
+    const urlTab: SearchType = isSearchType(urlTabRaw) ? urlTabRaw : 'all'
+    if (urlQuery !== searchQuery) setSearchQuery(urlQuery)
+    if (urlTab !== activeTab) setActiveTab(urlTab)
+    // searchQuery/activeTab은 의도적으로 deps에서 제외 — 이 effect는 URL이
+    // 바뀔 때만 동기화하면 충분하고, state가 deps에 들어가면 루프 위험.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   // URL 쿼리 동기화 — 탭/검색어 변경 시 ?tab=...&q=... 업데이트
   useEffect(() => {
     const next = new URLSearchParams(searchParams)
@@ -226,8 +242,14 @@ export default function BookSearchPage() {
     }
 
     const controller = new AbortController()
-    setIsBookLoading(true)
+    // [CodeRabbit fix] 400ms debounce 동안 이전 검색 결과가 그대로 보이는
+    // stale UI 방지 — setTimeout 들어가기 전에 결과/cursor/에러 초기화하여
+    // 사용자가 "검색 중..." placeholder만 보도록 한다.
+    setBookResults([])
+    setBookNextCursor(null)
+    setBookHasNext(false)
     setBookErrorMessage(null)
+    setIsBookLoading(true)
 
     const handle = setTimeout(async () => {
       try {
@@ -280,8 +302,12 @@ export default function BookSearchPage() {
     }
 
     const controller = new AbortController()
-    setIsUserLoading(true)
+    // [CodeRabbit fix] debounce 중 stale UI 방지 (도서 탭과 동일 정책).
+    setUserResults([])
+    setUserNextCursor(null)
+    setUserHasNext(false)
     setUserErrorMessage(null)
+    setIsUserLoading(true)
 
     const handle = setTimeout(async () => {
       try {
@@ -327,8 +353,13 @@ export default function BookSearchPage() {
     }
 
     const controller = new AbortController()
-    setIsAllLoading(true)
+    // [CodeRabbit fix] debounce 중 stale UI 방지.
+    setAllBooks([])
+    setAllUsers([])
+    setAllBooksHasMore(false)
+    setAllUsersHasMore(false)
     setAllErrorMessage(null)
+    setIsAllLoading(true)
 
     const handle = setTimeout(async () => {
       try {
@@ -336,6 +367,9 @@ export default function BookSearchPage() {
           query: trimmedQuery,
           type: 'all',
           cursor: null,
+          // [CodeRabbit nit fix] 미리보기 정책(ALL_TAB_PREVIEW_COUNT)에 맞춰
+          // 백엔드 호출도 그 크기로 제한 — 사용 안 할 17건의 트래픽/페이로드 절약.
+          limit: ALL_TAB_PREVIEW_COUNT,
           signal: controller.signal,
         })
         if (controller.signal.aborted) return
