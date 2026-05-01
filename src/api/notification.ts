@@ -1,5 +1,5 @@
 import apiClient from './client'
-import { type ApiResponse, normalizeAxiosError } from './_helpers'
+import { type ApiResponse, normalizeAxiosError, parseApiResponse } from './_helpers'
 
 /**
  * 백엔드 `NotificationType` enum과 1:1 매칭되는 문자열 리터럴 유니온.
@@ -68,10 +68,7 @@ export async function getNotifications(
         signal,
       }
     )
-    if (!data.data) {
-      throw new Error(data.message ?? '알림 목록 응답이 올바르지 않습니다.')
-    }
-    return data.data
+    return parseApiResponse(data, '알림 목록 응답이 올바르지 않습니다.')
   } catch (error) {
     throw normalizeAxiosError(error, '알림을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
   }
@@ -112,10 +109,7 @@ export async function getUnreadNotificationCount(
       '/api/v1/notifications/unread-count',
       { signal }
     )
-    if (!data.data) {
-      throw new Error(data.message ?? '미읽음 개수 응답이 올바르지 않습니다.')
-    }
-    return data.data
+    return parseApiResponse(data, '미읽음 개수 응답이 올바르지 않습니다.')
   } catch (error) {
     throw normalizeAxiosError(error, '미읽음 알림 수를 불러오지 못했습니다.')
   }

@@ -369,6 +369,17 @@ export default function NotificationsPage() {
                   highlighted
                 />
               ))
+            ) : hasNext || isLoadingMore ? (
+              // [CodeRabbit fix] 클라이언트 측 필터(unread)라 첫 페이지가 모두 읽음이고 다음
+              // 페이지에 미읽음이 있는 경우, 빈 상태를 보여주면서 동시에 sentinel이 백그라운드
+              // 페이지를 가져오는 동작이 사용자에겐 "없다고 했다가 갑자기 생겨남"으로 혼란스럽다.
+              // hasNext가 true이거나 추가 로딩 중이면 "확인 중" placeholder만 보여주고, 모든
+              // 페이지를 다 본 뒤에야 진짜 빈 상태를 노출한다.
+              <div className="flex flex-col items-center justify-center gap-3 py-20">
+                <p role="status" aria-busy="true" className="text-sm text-muted-foreground">
+                  읽지 않은 알림 확인 중...
+                </p>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center gap-3 py-20">
                 <span className="material-symbols-outlined text-5xl text-muted-foreground/30">
