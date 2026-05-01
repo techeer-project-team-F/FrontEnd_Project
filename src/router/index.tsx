@@ -115,6 +115,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/review/:reviewId/edit',
+    element: (
+      <ProtectedRoute>
+        <WriteReviewPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/profile',
     element: (
       <ProtectedRoute>

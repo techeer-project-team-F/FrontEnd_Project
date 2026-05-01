@@ -10,6 +10,8 @@ export interface CreateReviewRequest {
   isSpoiler?: boolean
 }
 
+export type UpdateReviewRequest = Omit<CreateReviewRequest, 'bookId'>
+
 export interface CreateReviewResponse {
   reviewId: number
 }
@@ -75,5 +77,21 @@ export async function getReviewDetail(
     return data.data
   } catch (error) {
     throw normalizeAxiosError(error, '감상 상세를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
+
+export async function updateReview(reviewId: number, request: UpdateReviewRequest): Promise<void> {
+  try {
+    await apiClient.put<ApiResponse<unknown>>(`/api/v1/reviews/${reviewId}`, request)
+  } catch (error) {
+    throw normalizeAxiosError(error, '감상을 수정하지 못했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
+
+export async function deleteReview(reviewId: number): Promise<void> {
+  try {
+    await apiClient.delete<ApiResponse<unknown>>(`/api/v1/reviews/${reviewId}`)
+  } catch (error) {
+    throw normalizeAxiosError(error, '감상을 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.')
   }
 }

@@ -2,15 +2,20 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { getBook, type BookDetail } from '@/api/book'
-import { createReview } from '@/api/review'
+import { createReview, getReviewDetail, updateReview } from '@/api/review'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
+import { useAuthStore } from '@/store/authStore'
+
+type ReviewFormBook = Pick<BookDetail, 'bookId' | 'title' | 'author' | 'coverImageUrl'>
 
 export default function WriteReviewPage() {
-  const { bookId } = useParams()
+  const { bookId, reviewId } = useParams()
   const navigate = useNavigate()
+  const currentUserId = useAuthStore(state => state.user?.id)
+  const isEditMode = reviewId != null
 
-  const [book, setBook] = useState<BookDetail | null>(null)
+  const [book, setBook] = useState<ReviewFormBook | null>(null)
   const [rating, setRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
   const [quoteText, setQuoteText] = useState('')
@@ -30,6 +35,52 @@ export default function WriteReviewPage() {
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
+    if (isEditMode) {
+      const isValid = /^\d+$/.test(reviewId ?? '')
+      if (!isValid) {
+        setLoadErrorMessage('감상 정보가 올바르지 않습니다.')
+        setBook(null)
+        setIsLoading(false)
+        return
+      }
+
+      const numericReviewId = parseInt(reviewId!, 10)
+      const controller = new AbortController()
+      setIsLoading(true)
+      setLoadErrorMessage(null)
+      ;(async () => {
+        try {
+          const result = await getReviewDetail(numericReviewId, controller.signal)
+          if (currentUserId != null && result.user.userId !== currentUserId) {
+            setLoadErrorMessage('본인이 작성한 감상만 수정할 수 있습니다.')
+            setBook(null)
+            return
+          }
+          setBook({
+            bookId: result.book.bookId,
+            title: result.book.title,
+            author: result.book.author,
+            coverImageUrl: result.book.coverImageUrl,
+          })
+          setRating(result.rating)
+          setReviewText(result.content)
+          setQuoteText(result.quote ?? '')
+          setIsQuoteEditorOpen(Boolean(result.quote))
+          setIsSpoiler(result.isSpoiler)
+        } catch (error) {
+          if (axios.isCancel(error)) return
+          setLoadErrorMessage(
+            error instanceof Error ? error.message : '감상을 불러오지 못했습니다.'
+          )
+          setBook(null)
+        } finally {
+          if (!controller.signal.aborted) setIsLoading(false)
+        }
+      })()
+
+      return () => controller.abort()
+    }
+
     const isValid = /^\d+$/.test(bookId ?? '')
     if (!isValid) {
       setLoadErrorMessage(
@@ -48,6 +99,11 @@ export default function WriteReviewPage() {
       try {
         const result = await getBook(numericBookId, controller.signal)
         setBook(result)
+        setRating(5)
+        setReviewText('')
+        setQuoteText('')
+        setIsQuoteEditorOpen(false)
+        setIsSpoiler(false)
       } catch (error) {
         // [MED-1 fix] try 블록 내 controller.signal.aborted 가드는 사실상 도달 불가
         // (요청이 abort되면 axios가 throw로 빠짐) + _helpers.ts의 normalizeAxiosError가
@@ -62,14 +118,15 @@ export default function WriteReviewPage() {
     })()
 
     return () => controller.abort()
-  }, [bookId])
+  }, [bookId, currentUserId, isEditMode, reviewId])
 
   const handleSubmit = async () => {
-    const isValid = /^\d+$/.test(bookId ?? '')
+    const isValidBookId = /^\d+$/.test(bookId ?? '')
+    const isValidReviewId = /^\d+$/.test(reviewId ?? '')
     const trimmedContent = reviewText.trim()
     const trimmedQuote = quoteText.trim()
 
-    if (!isValid || !book) {
+    if ((!isEditMode && !isValidBookId) || (isEditMode && !isValidReviewId) || !book) {
       setSubmitErrorMessage('도서 정보가 올바르지 않습니다.')
       return
     }
@@ -82,17 +139,36 @@ export default function WriteReviewPage() {
     setIsSubmitting(true)
     setSubmitErrorMessage(null)
     try {
-      const result = await createReview({
-        bookId: parseInt(bookId!, 10),
+      const basePayload = {
         content: trimmedContent,
         rating,
-        ...(trimmedQuote ? { quote: trimmedQuote } : {}),
         // [HIGH-1 fix] 사용자가 토글로 명시적으로 표시한 값을 그대로 전송 (이전엔 false 고정)
         isSpoiler,
+      }
+
+      if (isEditMode) {
+        await updateReview(parseInt(reviewId!, 10), {
+          ...basePayload,
+          quote: trimmedQuote,
+        })
+        navigate(`/review/${reviewId}`, { replace: true })
+        return
+      }
+
+      const result = await createReview({
+        bookId: parseInt(bookId!, 10),
+        ...basePayload,
+        ...(trimmedQuote ? { quote: trimmedQuote } : {}),
       })
       navigate(`/review/${result.reviewId}`, { replace: true })
     } catch (error) {
-      setSubmitErrorMessage(error instanceof Error ? error.message : '감상을 작성하지 못했습니다.')
+      setSubmitErrorMessage(
+        error instanceof Error
+          ? error.message
+          : isEditMode
+            ? '감상을 수정하지 못했습니다.'
+            : '감상을 작성하지 못했습니다.'
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -101,7 +177,7 @@ export default function WriteReviewPage() {
   if (isLoading) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
-        <AppHeader title="감상 작성" showBack />
+        <AppHeader title={isEditMode ? '감상 수정' : '감상 작성'} showBack />
         <main aria-busy="true" className="flex flex-1 items-center justify-center pb-24">
           <p role="status" className="text-sm text-muted-foreground">
             불러오는 중...
@@ -115,7 +191,7 @@ export default function WriteReviewPage() {
   if (loadErrorMessage || !book) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
-        <AppHeader title="감상 작성" showBack />
+        <AppHeader title={isEditMode ? '감상 수정' : '감상 작성'} showBack />
         <main className="flex flex-1 flex-col items-center justify-center gap-4 px-8 pb-24">
           <span className="material-symbols-outlined text-6xl text-muted-foreground/30">
             search_off
@@ -139,7 +215,7 @@ export default function WriteReviewPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <AppHeader title="감상 작성" showBack />
+      <AppHeader title={isEditMode ? '감상 수정' : '감상 작성'} showBack />
 
       <main className="flex-1 overflow-y-auto pb-24">
         {/* Book Info */}
@@ -273,7 +349,13 @@ export default function WriteReviewPage() {
               disabled={isSubmitting}
               className="h-14 flex-[1.7] rounded-full bg-primary text-base font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? '게시 중...' : '게시하기'}
+              {isSubmitting
+                ? isEditMode
+                  ? '수정 중...'
+                  : '게시 중...'
+                : isEditMode
+                  ? '수정하기'
+                  : '게시하기'}
             </button>
           </div>
         </section>

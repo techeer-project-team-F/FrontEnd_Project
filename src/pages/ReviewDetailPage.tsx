@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
-import { getReviewDetail, type ReviewDetail } from '@/api/review'
+import { deleteReview, getReviewDetail, type ReviewDetail } from '@/api/review'
 import { backendToFrontStatus } from '@/api/library'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { useAuthStore } from '@/store/authStore'
 import type { ReadingStatus } from '@/types'
 
 const readingStatusLabel: Record<ReadingStatus, string> = {
@@ -17,10 +26,14 @@ const readingStatusLabel: Record<ReadingStatus, string> = {
 export default function ReviewDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const currentUserId = useAuthStore(state => state.user?.id)
   const reviewId = Number(id)
   const [review, setReview] = useState<ReviewDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!Number.isFinite(reviewId)) {
@@ -117,6 +130,20 @@ export default function ReviewDetailPage() {
       ? '도서 소개'
       : '감상 중에서'
   const coverImageUrl = review.book.coverImageUrl
+  const isMyReview = currentUserId != null && review.user.userId === currentUserId
+
+  const handleDeleteReview = async () => {
+    setIsDeleting(true)
+    setDeleteErrorMessage(null)
+    try {
+      await deleteReview(review.reviewId)
+      navigate(`/book/${review.book.bookId}`, { replace: true })
+    } catch (error) {
+      setDeleteErrorMessage(error instanceof Error ? error.message : '감상을 삭제하지 못했습니다.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -164,6 +191,30 @@ export default function ReviewDetailPage() {
             </div>
           </div>
         </section>
+
+        {isMyReview && (
+          <section className="flex gap-2 px-5 pb-3">
+            <button
+              type="button"
+              onClick={() => navigate(`/review/${review.reviewId}/edit`)}
+              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-card text-sm font-bold text-primary transition-colors hover:bg-primary/5"
+            >
+              <span className="material-symbols-outlined text-[18px]">edit</span>
+              수정
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteErrorMessage(null)
+                setIsDeleteDialogOpen(true)
+              }}
+              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 text-sm font-bold text-destructive transition-colors hover:bg-destructive/10"
+            >
+              <span className="material-symbols-outlined text-[18px]">delete</span>
+              삭제
+            </button>
+          </section>
+        )}
 
         {/* Review Content */}
         <section className="px-5 py-3">
@@ -276,6 +327,56 @@ export default function ReviewDetailPage() {
           </div>
         </section>
       </main>
+
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={open => {
+          if (isDeleting && !open) return
+          setIsDeleteDialogOpen(open)
+        }}
+      >
+        <DialogContent
+          onInteractOutside={e => {
+            if (isDeleting) e.preventDefault()
+          }}
+          onEscapeKeyDown={e => {
+            if (isDeleting) e.preventDefault()
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>감상을 삭제하시겠습니까?</DialogTitle>
+            <DialogDescription>
+              삭제한 감상은 되돌릴 수 없습니다. 이 책에 대한 감상 기록이 사라집니다.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteErrorMessage && (
+            <p
+              role="alert"
+              className="rounded-lg bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
+            >
+              {deleteErrorMessage}
+            </p>
+          )}
+          <DialogFooter className="gap-2">
+            <button
+              type="button"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isDeleting}
+              className="rounded-lg border border-primary/20 bg-card px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-primary/5 disabled:opacity-60"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteReview}
+              disabled={isDeleting}
+              className="rounded-lg bg-destructive px-5 py-3 text-sm font-semibold text-destructive-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isDeleting ? '삭제 중...' : '삭제하기'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <BottomNav />
     </div>
