@@ -233,13 +233,16 @@ describe('apiClient response interceptor — 401 분기', () => {
   function makeAxiosError(
     url: string,
     status: number | undefined,
-    extraConfig: Partial<{ _retry: boolean }> = {}
+    extraConfig: Partial<{ _retry: boolean }> = {},
+    responseData: Record<string, unknown> = {}
   ): AxiosError {
     return {
       isAxiosError: true,
       config: { url, headers: {}, ...extraConfig },
       response:
-        status != null ? { status, data: {}, headers: {}, config: {}, statusText: '' } : undefined,
+        status != null
+          ? { status, data: responseData, headers: {}, config: {}, statusText: '' }
+          : undefined,
       message: 'mock',
       name: 'AxiosError',
       toJSON: () => ({}),
@@ -427,5 +430,161 @@ describe('apiClient response interceptor — 401 분기', () => {
     resolveInner!('cross-account-token')
     await expect(handlerPromise).rejects.toBe(error)
     expect(setAuthMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('isMemberNotFound', () => {
+  it('404 + "존재하지 않는 회원입니다." → true', async () => {
+    const { isMemberNotFound } = await import('./client')
+    const error = {
+      isAxiosError: true,
+      response: { status: 404, data: { message: '존재하지 않는 회원입니다.' } },
+    }
+    expect(isMemberNotFound(error)).toBe(true)
+  })
+
+  it('404 + 다른 메시지 → false', async () => {
+    const { isMemberNotFound } = await import('./client')
+    const error = {
+      isAxiosError: true,
+      response: { status: 404, data: { message: '존재하지 않는 도서입니다.' } },
+    }
+    expect(isMemberNotFound(error)).toBe(false)
+  })
+
+  it('404 + 메시지 없음 → false', async () => {
+    const { isMemberNotFound } = await import('./client')
+    const error = {
+      isAxiosError: true,
+      response: { status: 404, data: {} },
+    }
+    expect(isMemberNotFound(error)).toBe(false)
+  })
+
+  it('401 + 회원 메시지 → false (status 불일치)', async () => {
+    const { isMemberNotFound } = await import('./client')
+    const error = {
+      isAxiosError: true,
+      response: { status: 401, data: { message: '존재하지 않는 회원입니다.' } },
+    }
+    expect(isMemberNotFound(error)).toBe(false)
+  })
+
+  it('non-Axios 에러 → false', async () => {
+    const { isMemberNotFound } = await import('./client')
+    expect(isMemberNotFound(new Error('test'))).toBe(false)
+    expect(isMemberNotFound(null)).toBe(false)
+  })
+})
+
+describe('MEMBER_NOT_FOUND 인터셉터 — stale 세션 감지', () => {
+  async function getErrorHandler() {
+    const client = await import('./client')
+    return client.handleApiClientResponseError
+  }
+
+  function makeAxiosError(
+    url: string,
+    status: number | undefined,
+    extraConfig: Partial<{ _retry: boolean }> = {},
+    responseData: Record<string, unknown> = {}
+  ): AxiosError {
+    return {
+      isAxiosError: true,
+      config: { url, headers: {}, ...extraConfig },
+      response:
+        status != null
+          ? { status, data: responseData, headers: {}, config: {}, statusText: '' }
+          : undefined,
+      message: 'mock',
+      name: 'AxiosError',
+      toJSON: () => ({}),
+    } as unknown as AxiosError
+  }
+
+  it('404 + MEMBER_NOT_FOUND + refresh도 MEMBER_NOT_FOUND 실패 → logout', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+    vi.spyOn(client.refreshClient, 'post').mockRejectedValueOnce(
+      Object.assign(new Error('refresh 404'), {
+        isAxiosError: true,
+        response: { status: 404, data: { message: '존재하지 않는 회원입니다.' } },
+      })
+    )
+
+    const error = makeAxiosError(
+      '/api/v1/feed/following',
+      404,
+      {},
+      {
+        message: '존재하지 않는 회원입니다.',
+      }
+    )
+    await expect(handler(error)).rejects.toBeDefined()
+    expect(clearAuthMock).toHaveBeenCalledOnce()
+    expect(locationStub.href).toBe('/login')
+  })
+
+  it('404 + MEMBER_NOT_FOUND + refresh 성공 → logout 안 함 (타 유저 404)', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+    vi.spyOn(client.refreshClient, 'post').mockResolvedValueOnce({
+      data: {
+        status: 'SUCCESS',
+        code: 200,
+        data: { accessToken: 'fresh-token', accessTokenExpiresIn: 3600 },
+      },
+    } as never)
+
+    const error = makeAxiosError(
+      '/api/v1/members/999/reviews',
+      404,
+      {},
+      {
+        message: '존재하지 않는 회원입니다.',
+      }
+    )
+    // refresh 성공 후 재시도 → apiClient(originalRequest)가 실행되지만
+    // 네트워크 없으므로 catch. 중요한 건 logout이 안 되는 것.
+    await handler(error).catch(() => undefined)
+    expect(clearAuthMock).not.toHaveBeenCalled()
+    expect(locationStub.href).toBe('')
+  })
+
+  it('일반 404 (다른 메시지) → refresh 시도 안 함, 그대로 reject', async () => {
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+    const refreshSpy = vi.spyOn(client.refreshClient, 'post')
+
+    const error = makeAxiosError(
+      '/api/v1/books/999',
+      404,
+      {},
+      {
+        message: '존재하지 않는 도서입니다.',
+      }
+    )
+    await expect(handler(error)).rejects.toBe(error)
+    expect(refreshSpy).not.toHaveBeenCalled()
+  })
+
+  it('404 + MEMBER_NOT_FOUND + 비로그인 → refresh 시도 안 함', async () => {
+    authState.isAuthenticated = false
+    authState.user = null
+    authState.accessToken = null
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+    const refreshSpy = vi.spyOn(client.refreshClient, 'post')
+
+    const error = makeAxiosError(
+      '/api/v1/feed/following',
+      404,
+      {},
+      {
+        message: '존재하지 않는 회원입니다.',
+      }
+    )
+    await expect(handler(error)).rejects.toBe(error)
+    expect(refreshSpy).not.toHaveBeenCalled()
   })
 })
