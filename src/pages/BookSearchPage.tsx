@@ -1,12 +1,16 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
+import UserSearchCard from '@/components/common/UserSearchCard'
 import { getBookByIsbn, searchBooks, type BookDetail, type BookSummary } from '@/api/book'
+import { searchAll, type BookSearchItem, type UserSearchItem, type SearchType } from '@/api/search'
+import { cn } from '@/lib/utils'
 
 const RECENT_KEYWORDS_KEY = 'shelfeed-recent-keywords'
 const MAX_RECENT_KEYWORDS = 10
+const ALL_TAB_PREVIEW_COUNT = 3
 
 // ZXing 의존성을 가진 모달은 사용자가 카메라 버튼을 눌렀을 때만 다운로드
 const IsbnScannerModal = lazy(() => import('@/components/common/IsbnScannerModal'))
@@ -59,59 +63,171 @@ function saveRecentKeywords(keywords: string[]) {
   }
 }
 
+const TABS: { value: SearchType; label: string }[] = [
+  { value: 'all', label: '전체' },
+  { value: 'book', label: '도서' },
+  { value: 'user', label: '유저' },
+]
+
+function isSearchType(value: string | null): value is SearchType {
+  return value === 'all' || value === 'book' || value === 'user'
+}
+
+/**
+ * 통합 검색 페이지 (`/search`).
+ *
+ * 탭(전체/도서/유저)으로 분기하여 단일 진입점에서 도서와 유저를 모두 검색한다.
+ * URL 쿼리 `?tab=...&q=...`로 deep link/새로고침 보존.
+ *
+ * **API 분리 정책**:
+ * - 도서 탭: 기존 `searchBooks` (`/api/v1/books/search`) 그대로 — `publisher`/`publishedDate`/
+ *   `inMyLibrary`(서재 상태) + ISBN 자동 인식 + 바코드 스캐너 동작 유지.
+ * - 유저 탭 / 전체 탭: 통합 검색 `searchAll` (`/api/v1/search`) — 응답에 `averageRating`/
+ *   `reviewCount`(통계)는 있지만 publisher/inMyLibrary는 없음. 카드 UI 분리.
+ *
+ * **무한 스크롤**:
+ * - 도서 탭과 유저 탭 모두 IntersectionObserver + cursor 페이징.
+ * - 전체 탭은 books/users를 각각 처음 `ALL_TAB_PREVIEW_COUNT`건만 미리보기로 노출하고
+ *   "전체 보기" 클릭 시 해당 탭으로 점프 (페이징 없음).
+ *
+ * **state 분리**:
+ * 탭별 결과/cursor/로딩/에러를 별도 state로 둬서 탭 전환 시 다른 탭의 결과를 보존.
+ * 검색어/탭 변경 시 in-flight 요청은 AbortController로 일괄 abort.
+ */
 export default function BookSearchPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const [recentKeywords, setRecentKeywords] = useState<string[]>(() => loadRecentKeywords())
-  const [searchQuery, setSearchQuery] = useState('')
-  const [results, setResults] = useState<BookSummary[]>([])
-  const [nextCursor, setNextCursor] = useState<number | null>(null)
-  const [hasNext, setHasNext] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
+  const initialQuery = searchParams.get('q') ?? ''
+  const initialTab = (() => {
+    const t = searchParams.get('tab')
+    return isSearchType(t) ? t : 'all'
+  })()
+
+  const [searchQuery, setSearchQuery] = useState(initialQuery)
+  const [activeTab, setActiveTab] = useState<SearchType>(initialTab)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
+
+  // 도서 탭 (searchBooks 응답)
+  const [bookResults, setBookResults] = useState<BookSummary[]>([])
+  const [bookNextCursor, setBookNextCursor] = useState<number | null>(null)
+  const [bookHasNext, setBookHasNext] = useState(false)
+  const [isBookLoading, setIsBookLoading] = useState(false)
+  const [isBookLoadingMore, setIsBookLoadingMore] = useState(false)
+  const [bookErrorMessage, setBookErrorMessage] = useState<string | null>(null)
+  const [bookLoadMoreError, setBookLoadMoreError] = useState<string | null>(null)
+
+  // 유저 탭 (searchAll type=user 응답)
+  const [userResults, setUserResults] = useState<UserSearchItem[]>([])
+  const [userNextCursor, setUserNextCursor] = useState<number | null>(null)
+  const [userHasNext, setUserHasNext] = useState(false)
+  const [isUserLoading, setIsUserLoading] = useState(false)
+  const [isUserLoadingMore, setIsUserLoadingMore] = useState(false)
+  const [userErrorMessage, setUserErrorMessage] = useState<string | null>(null)
+  const [userLoadMoreError, setUserLoadMoreError] = useState<string | null>(null)
+
+  // 전체 탭 (searchAll type=all 응답 — 미리보기용, 페이징 없음)
+  const [allBooks, setAllBooks] = useState<BookSearchItem[]>([])
+  const [allUsers, setAllUsers] = useState<UserSearchItem[]>([])
+  const [allBooksHasMore, setAllBooksHasMore] = useState(false)
+  const [allUsersHasMore, setAllUsersHasMore] = useState(false)
+  const [isAllLoading, setIsAllLoading] = useState(false)
+  const [allErrorMessage, setAllErrorMessage] = useState<string | null>(null)
 
   const trimmedQuery = searchQuery.trim()
   const isIsbnMode = isValidIsbn13(trimmedQuery)
-  const loadMoreRef = useRef<HTMLDivElement | null>(null)
-  const moreControllerRef = useRef<AbortController | null>(null)
+
+  const bookSentinelRef = useRef<HTMLDivElement | null>(null)
+  const userSentinelRef = useRef<HTMLDivElement | null>(null)
+
+  /**
+   * 탭별 진행 중 요청 abort controller. 검색어/탭 전환 시 새 요청으로 교체.
+   */
+  const bookMoreControllerRef = useRef<AbortController | null>(null)
+  const userMoreControllerRef = useRef<AbortController | null>(null)
 
   // observer 콜백에서 최신 state를 읽기 위한 ref (deps 폭주 방지)
   const stateRef = useRef({
-    hasNext,
-    isLoading,
-    isLoadingMore,
-    nextCursor,
+    bookHasNext,
+    isBookLoading,
+    isBookLoadingMore,
+    bookNextCursor,
+    bookLoadMoreError,
+    userHasNext,
+    isUserLoading,
+    isUserLoadingMore,
+    userNextCursor,
+    userLoadMoreError,
     trimmedQuery,
-    loadMoreError,
+    activeTab,
   })
   stateRef.current = {
-    hasNext,
-    isLoading,
-    isLoadingMore,
-    nextCursor,
+    bookHasNext,
+    isBookLoading,
+    isBookLoadingMore,
+    bookNextCursor,
+    bookLoadMoreError,
+    userHasNext,
+    isUserLoading,
+    isUserLoadingMore,
+    userNextCursor,
+    userLoadMoreError,
     trimmedQuery,
-    loadMoreError,
+    activeTab,
   }
 
-  // 검색어 debounce + AbortController로 stale 응답 방지
+  // ISBN13이면 자동 도서 탭으로 강제 — 바코드 스캐너 결과/사용자 직접 입력 모두 커버
   useEffect(() => {
-    // 검색어가 바뀌면 in-flight 상태를 전부 초기화 (MEDIUM 1: 깜빡임 방지)
-    setIsLoadingMore(false)
-    setLoadMoreError(null)
-    moreControllerRef.current?.abort()
+    if (isIsbnMode && activeTab !== 'book') {
+      setActiveTab('book')
+    }
+  }, [isIsbnMode, activeTab])
 
-    if (!trimmedQuery) {
-      setResults([])
-      setNextCursor(null)
-      setHasNext(false)
-      setErrorMessage(null)
+  // URL 쿼리 동기화 — 탭/검색어 변경 시 ?tab=...&q=... 업데이트
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    if (trimmedQuery) {
+      next.set('q', trimmedQuery)
+    } else {
+      next.delete('q')
+    }
+    if (activeTab !== 'all') {
+      next.set('tab', activeTab)
+    } else {
+      next.delete('tab')
+    }
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true })
+    }
+    // [code-review LOW fix] searchParams를 deps에 넣으면 setSearchParams →
+    // 새 searchParams 인스턴스 → effect 재실행의 무한 루프 위험. 위 toString
+    // 비교 가드가 같은 값일 때 setSearchParams를 스킵하지만, 외부에서
+    // searchParams를 직접 변경할 수 있는 경로가 생기면 본 effect가 그것을
+    // 덮어쓸 수 있다(현재는 그런 경로 없음). 의도적으로 deps에서 제외하고
+    // 비교 가드로 무한 루프만 차단.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trimmedQuery, activeTab])
+
+  // 도서 탭 첫 페이지 fetch (검색어 변경 시 debounce)
+  useEffect(() => {
+    setIsBookLoadingMore(false)
+    setBookLoadMoreError(null)
+    bookMoreControllerRef.current?.abort()
+
+    if (!trimmedQuery || activeTab !== 'book') {
+      // 다른 탭이거나 검색어 비어있으면 도서 결과 초기화
+      if (!trimmedQuery) {
+        setBookResults([])
+        setBookNextCursor(null)
+        setBookHasNext(false)
+        setBookErrorMessage(null)
+      }
       return
     }
 
     const controller = new AbortController()
-    setIsLoading(true)
-    setErrorMessage(null)
+    setIsBookLoading(true)
+    setBookErrorMessage(null)
 
     const handle = setTimeout(async () => {
       try {
@@ -119,89 +235,245 @@ export default function BookSearchPage() {
           // ISBN 모드: 단일 도서 정확 조회 — 페이지네이션 없음
           const book = await getBookByIsbn(trimmedQuery, controller.signal)
           if (controller.signal.aborted) return
-          setResults([isbnResultToSummary(book)])
-          setNextCursor(null)
-          setHasNext(false)
+          setBookResults([isbnResultToSummary(book)])
+          setBookNextCursor(null)
+          setBookHasNext(false)
         } else {
           const response = await searchBooks(trimmedQuery, 20, null, controller.signal)
           if (controller.signal.aborted) return
-          setResults(response.content)
-          setNextCursor(response.nextCursor)
-          setHasNext(response.hasNext)
+          setBookResults(response.content)
+          setBookNextCursor(response.nextCursor)
+          setBookHasNext(response.hasNext)
         }
       } catch (error) {
         if (axios.isCancel(error) || controller.signal.aborted) return
-        setErrorMessage(error instanceof Error ? error.message : '검색에 실패했습니다.')
-        setResults([])
-        setNextCursor(null)
-        setHasNext(false)
+        setBookErrorMessage(error instanceof Error ? error.message : '검색에 실패했습니다.')
+        setBookResults([])
+        setBookNextCursor(null)
+        setBookHasNext(false)
       } finally {
-        if (!controller.signal.aborted) setIsLoading(false)
+        if (!controller.signal.aborted) setIsBookLoading(false)
       }
     }, 400)
 
     return () => {
       clearTimeout(handle)
       controller.abort()
-      moreControllerRef.current?.abort()
+      bookMoreControllerRef.current?.abort()
     }
-  }, [trimmedQuery])
+  }, [trimmedQuery, activeTab])
 
-  // 다음 페이지 로딩 (observer + 수동 retry에서 공유)
-  const fetchMore = useCallback(async () => {
-    const s = stateRef.current
-    if (s.isLoadingMore || s.isLoading || !s.hasNext) return
-    // ISBN 모드는 단일 결과라 추가 로딩 불필요
-    if (isValidIsbn13(s.trimmedQuery)) return
-    const requestedQuery = s.trimmedQuery
-    const requestedCursor = s.nextCursor
+  // 유저 탭 첫 페이지 fetch
+  useEffect(() => {
+    setIsUserLoadingMore(false)
+    setUserLoadMoreError(null)
+    userMoreControllerRef.current?.abort()
 
-    // 이전 pagination 요청 취소 후 새 controller 생성
-    moreControllerRef.current?.abort()
+    if (!trimmedQuery || activeTab !== 'user') {
+      if (!trimmedQuery) {
+        setUserResults([])
+        setUserNextCursor(null)
+        setUserHasNext(false)
+        setUserErrorMessage(null)
+      }
+      return
+    }
+
     const controller = new AbortController()
-    moreControllerRef.current = controller
+    setIsUserLoading(true)
+    setUserErrorMessage(null)
 
-    setIsLoadingMore(true)
-    setLoadMoreError(null)
+    const handle = setTimeout(async () => {
+      try {
+        const response = await searchAll({
+          query: trimmedQuery,
+          type: 'user',
+          cursor: null,
+          signal: controller.signal,
+        })
+        if (controller.signal.aborted) return
+        setUserResults(response.users.content)
+        setUserNextCursor(response.users.nextCursor)
+        setUserHasNext(response.users.hasNext)
+      } catch (error) {
+        if (axios.isCancel(error) || controller.signal.aborted) return
+        setUserErrorMessage(error instanceof Error ? error.message : '검색에 실패했습니다.')
+        setUserResults([])
+        setUserNextCursor(null)
+        setUserHasNext(false)
+      } finally {
+        if (!controller.signal.aborted) setIsUserLoading(false)
+      }
+    }, 400)
+
+    return () => {
+      clearTimeout(handle)
+      controller.abort()
+      userMoreControllerRef.current?.abort()
+    }
+  }, [trimmedQuery, activeTab])
+
+  // 전체 탭 fetch — books/users 두 섹션 미리보기, 페이징 없음
+  useEffect(() => {
+    if (!trimmedQuery || activeTab !== 'all') {
+      if (!trimmedQuery) {
+        setAllBooks([])
+        setAllUsers([])
+        setAllBooksHasMore(false)
+        setAllUsersHasMore(false)
+        setAllErrorMessage(null)
+      }
+      return
+    }
+
+    const controller = new AbortController()
+    setIsAllLoading(true)
+    setAllErrorMessage(null)
+
+    const handle = setTimeout(async () => {
+      try {
+        const response = await searchAll({
+          query: trimmedQuery,
+          type: 'all',
+          cursor: null,
+          signal: controller.signal,
+        })
+        if (controller.signal.aborted) return
+        setAllBooks(response.books.content)
+        setAllUsers(response.users.content)
+        setAllBooksHasMore(response.books.hasNext)
+        setAllUsersHasMore(response.users.hasNext)
+      } catch (error) {
+        if (axios.isCancel(error) || controller.signal.aborted) return
+        setAllErrorMessage(error instanceof Error ? error.message : '검색에 실패했습니다.')
+        setAllBooks([])
+        setAllUsers([])
+      } finally {
+        if (!controller.signal.aborted) setIsAllLoading(false)
+      }
+    }, 400)
+
+    return () => {
+      clearTimeout(handle)
+      controller.abort()
+    }
+  }, [trimmedQuery, activeTab])
+
+  /**
+   * 도서 탭 다음 페이지 로딩. observer 콜백과 retry 버튼이 공유 호출.
+   * stateRef에서 최신 상태 읽어 stale closure 회피.
+   */
+  const fetchMoreBooks = useCallback(async () => {
+    const s = stateRef.current
+    // [code-review MED fix] 비활성 탭에서 sentinel 콜백이 늦게 발화해도 fetch가
+    // 진행되지 않도록 진입부 가드. observer disconnect와 별개의 안전망.
+    if (s.activeTab !== 'book') return
+    if (s.isBookLoadingMore || s.isBookLoading || !s.bookHasNext) return
+    if (isValidIsbn13(s.trimmedQuery)) return // ISBN 모드는 단일 결과
+    const requestedQuery = s.trimmedQuery
+    const requestedCursor = s.bookNextCursor
+
+    bookMoreControllerRef.current?.abort()
+    const controller = new AbortController()
+    bookMoreControllerRef.current = controller
+
+    setIsBookLoadingMore(true)
+    setBookLoadMoreError(null)
     try {
       const response = await searchBooks(requestedQuery, 20, requestedCursor, controller.signal)
       if (controller.signal.aborted) return
-      // stale guard: 검색어가 바뀐 경우 결과 버림
       if (stateRef.current.trimmedQuery !== requestedQuery) return
-      setResults(prev => [...prev, ...response.content])
-      setNextCursor(response.nextCursor)
-      setHasNext(response.hasNext)
+      setBookResults(prev => [...prev, ...response.content])
+      setBookNextCursor(response.nextCursor)
+      setBookHasNext(response.hasNext)
     } catch (error) {
       if (axios.isCancel(error) || controller.signal.aborted) return
       if (stateRef.current.trimmedQuery !== requestedQuery) return
-      setLoadMoreError(error instanceof Error ? error.message : '추가 로딩에 실패했습니다.')
+      setBookLoadMoreError(error instanceof Error ? error.message : '추가 로딩에 실패했습니다.')
     } finally {
-      if (!controller.signal.aborted) setIsLoadingMore(false)
+      if (!controller.signal.aborted) setIsBookLoadingMore(false)
     }
   }, [])
 
-  // IntersectionObserver — sentinel이 조건부 렌더되므로 hasResults 변화 시 재생성
-  const hasResults = results.length > 0
-  useEffect(() => {
-    const sentinel = loadMoreRef.current
-    if (!sentinel) return
+  /**
+   * 유저 탭 다음 페이지 로딩. fetchMoreBooks와 동일 패턴.
+   */
+  const fetchMoreUsers = useCallback(async () => {
+    const s = stateRef.current
+    // [code-review MED fix] 비활성 탭 진입부 가드 (fetchMoreBooks와 동일 정책).
+    if (s.activeTab !== 'user') return
+    if (s.isUserLoadingMore || s.isUserLoading || !s.userHasNext) return
+    const requestedQuery = s.trimmedQuery
+    const requestedCursor = s.userNextCursor
 
+    userMoreControllerRef.current?.abort()
+    const controller = new AbortController()
+    userMoreControllerRef.current = controller
+
+    setIsUserLoadingMore(true)
+    setUserLoadMoreError(null)
+    try {
+      const response = await searchAll({
+        query: requestedQuery,
+        type: 'user',
+        cursor: requestedCursor,
+        signal: controller.signal,
+      })
+      if (controller.signal.aborted) return
+      if (stateRef.current.trimmedQuery !== requestedQuery) return
+      setUserResults(prev => [...prev, ...response.users.content])
+      setUserNextCursor(response.users.nextCursor)
+      setUserHasNext(response.users.hasNext)
+    } catch (error) {
+      if (axios.isCancel(error) || controller.signal.aborted) return
+      if (stateRef.current.trimmedQuery !== requestedQuery) return
+      setUserLoadMoreError(error instanceof Error ? error.message : '추가 로딩에 실패했습니다.')
+    } finally {
+      if (!controller.signal.aborted) setIsUserLoadingMore(false)
+    }
+  }, [])
+
+  // 도서 sentinel observer
+  const hasBookResults = bookResults.length > 0
+  useEffect(() => {
+    const sentinel = bookSentinelRef.current
+    if (!sentinel || activeTab !== 'book') return
     const observer = new IntersectionObserver(
       entries => {
-        if (!entries[0].isIntersecting) return
-        if (stateRef.current.loadMoreError) return
-        fetchMore()
+        if (!entries[0]?.isIntersecting) return
+        if (stateRef.current.bookLoadMoreError) return
+        fetchMoreBooks()
       },
       { rootMargin: '200px' }
     )
-
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [fetchMore, hasResults])
+  }, [fetchMoreBooks, hasBookResults, activeTab])
 
-  const retryLoadMore = () => {
-    setLoadMoreError(null)
-    fetchMore()
+  // 유저 sentinel observer
+  const hasUserResults = userResults.length > 0
+  useEffect(() => {
+    const sentinel = userSentinelRef.current
+    if (!sentinel || activeTab !== 'user') return
+    const observer = new IntersectionObserver(
+      entries => {
+        if (!entries[0]?.isIntersecting) return
+        if (stateRef.current.userLoadMoreError) return
+        fetchMoreUsers()
+      },
+      { rootMargin: '200px' }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [fetchMoreUsers, hasUserResults, activeTab])
+
+  const retryLoadMoreBooks = () => {
+    setBookLoadMoreError(null)
+    fetchMoreBooks()
+  }
+  const retryLoadMoreUsers = () => {
+    setUserLoadMoreError(null)
+    fetchMoreUsers()
   }
 
   const commitKeyword = (keyword: string) => {
@@ -246,7 +518,7 @@ export default function BookSearchPage() {
       {/* Search Bar */}
       <div className="border-b border-border px-4 py-3" role="search">
         <label htmlFor="book-search-input" className="sr-only">
-          도서 검색
+          통합 검색
         </label>
         <div className="flex h-12 w-full items-stretch rounded-xl border border-primary/10 bg-primary/5">
           <div className="flex items-center justify-center pl-4 text-primary/60">
@@ -258,18 +530,50 @@ export default function BookSearchPage() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            aria-label="도서 제목, 저자, ISBN 검색"
-            placeholder="도서 제목, 저자, ISBN 검색"
+            aria-label="도서 또는 유저 검색"
+            placeholder={
+              activeTab === 'user'
+                ? '닉네임으로 유저 검색'
+                : activeTab === 'book'
+                  ? '도서 제목, 저자, ISBN 검색'
+                  : '도서 또는 유저 검색'
+            }
             className="h-full min-w-0 flex-1 border-none bg-transparent px-3 text-base font-normal outline-none placeholder:text-primary/40 focus:ring-0"
           />
-          <button
-            type="button"
-            onClick={() => setIsScannerOpen(true)}
-            aria-label="바코드 스캔으로 ISBN 검색"
-            className="flex items-center justify-center pr-4 text-primary transition-colors hover:text-primary/70"
-          >
-            <span className="material-symbols-outlined text-[24px]">barcode_scanner</span>
-          </button>
+          {/* 바코드 스캐너는 도서 탭에서만 의미 있음 */}
+          {activeTab === 'book' && (
+            <button
+              type="button"
+              onClick={() => setIsScannerOpen(true)}
+              aria-label="바코드 스캔으로 ISBN 검색"
+              className="flex items-center justify-center pr-4 text-primary transition-colors hover:text-primary/70"
+            >
+              <span className="material-symbols-outlined text-[24px]">barcode_scanner</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-border" role="tablist">
+        <div className="flex">
+          {TABS.map(tab => (
+            <button
+              key={tab.value}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className={cn(
+                'flex-1 border-b-2 py-3 text-sm font-bold transition-colors',
+                activeTab === tab.value
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -318,94 +622,191 @@ export default function BookSearchPage() {
 
       {/* Search Results */}
       <main className="flex-1 overflow-y-auto px-4 pb-24">
-        {trimmedQuery && isLoading && results.length === 0 && (
-          <p className="py-10 text-center text-sm text-muted-foreground">검색 중...</p>
+        {/* 전체 탭 */}
+        {activeTab === 'all' && trimmedQuery && (
+          <AllTabContent
+            isLoading={isAllLoading}
+            errorMessage={allErrorMessage}
+            books={allBooks}
+            users={allUsers}
+            booksHasMore={allBooksHasMore}
+            usersHasMore={allUsersHasMore}
+            previewCount={ALL_TAB_PREVIEW_COUNT}
+            onJumpToBookTab={() => setActiveTab('book')}
+            onJumpToUserTab={() => setActiveTab('user')}
+            commitKeyword={() => commitKeyword(trimmedQuery)}
+          />
         )}
 
-        {trimmedQuery && !isLoading && errorMessage && (
-          <p role="alert" className="py-10 text-center text-sm text-destructive">
-            {errorMessage}
-          </p>
-        )}
-
-        {trimmedQuery && !isLoading && !errorMessage && results.length === 0 && (
-          <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <span className="material-symbols-outlined text-5xl text-muted-foreground/30">
-              search_off
-            </span>
-            <p className="max-w-full truncate text-sm text-muted-foreground">
-              '{trimmedQuery}'에 대한 검색 결과가 없습니다.
-            </p>
-          </div>
-        )}
-
-        {results.length > 0 && (
-          <div className="flex flex-col">
-            {results.map(book => (
-              <Link
-                key={book.bookId}
-                to={`/book/${book.bookId}`}
-                onClick={() => commitKeyword(trimmedQuery)}
-                className="flex items-start gap-4 border-b border-primary/5 py-5"
+        {/* 도서 탭 */}
+        {activeTab === 'book' && trimmedQuery && (
+          <>
+            {isBookLoading && bookResults.length === 0 && (
+              <p
+                role="status"
+                aria-busy="true"
+                className="py-10 text-center text-sm text-muted-foreground"
               >
-                <div className="h-36 w-24 shrink-0 overflow-hidden rounded-lg bg-primary/5 shadow-sm">
-                  {book.coverImageUrl ? (
-                    <img
-                      src={book.coverImageUrl}
-                      alt={book.title}
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex size-full items-center justify-center">
-                      <span className="material-symbols-outlined text-2xl text-muted-foreground/40">
-                        menu_book
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <h3 className="line-clamp-2 text-lg font-bold leading-tight text-primary">
-                    {book.title}
-                  </h3>
-                  <p className="truncate text-sm text-muted-foreground">{book.author} 저</p>
-                  <p className="truncate text-xs text-muted-foreground/70">{book.publisher}</p>
-                  {book.inMyLibrary && (
-                    <span className="mt-1 w-fit rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                      내 서재에 있음
-                    </span>
-                  )}
-                </div>
-              </Link>
-            ))}
-
-            {/* 무한 스크롤 sentinel */}
-            <div ref={loadMoreRef} className="h-10" />
-
-            {isLoadingMore && (
-              <p className="py-4 text-center text-xs text-muted-foreground">더 불러오는 중...</p>
+                검색 중...
+              </p>
             )}
 
-            {loadMoreError && !isLoadingMore && (
-              <div className="flex flex-col items-center gap-2 py-4">
-                <p role="alert" className="text-sm text-destructive">
-                  {loadMoreError}
+            {!isBookLoading && bookErrorMessage && (
+              <p role="alert" className="py-10 text-center text-sm text-destructive">
+                {bookErrorMessage}
+              </p>
+            )}
+
+            {!isBookLoading && !bookErrorMessage && bookResults.length === 0 && (
+              <div className="flex flex-col items-center gap-3 py-16 text-center">
+                <span className="material-symbols-outlined text-5xl text-muted-foreground/30">
+                  search_off
+                </span>
+                <p className="max-w-full truncate text-sm text-muted-foreground">
+                  &lsquo;{trimmedQuery}&rsquo;에 대한 도서 검색 결과가 없습니다.
                 </p>
-                <button
-                  type="button"
-                  onClick={retryLoadMore}
-                  className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20"
-                >
-                  다시 불러오기
-                </button>
               </div>
             )}
 
-            {!hasNext && !isLoadingMore && !loadMoreError && !isIsbnMode && (
-              <p className="py-4 text-center text-xs text-muted-foreground/50">
-                모든 결과를 확인했습니다
+            {bookResults.length > 0 && (
+              <div className="flex flex-col">
+                {bookResults.map(book => (
+                  <Link
+                    key={book.bookId}
+                    to={`/book/${book.bookId}`}
+                    onClick={() => commitKeyword(trimmedQuery)}
+                    className="flex items-start gap-4 border-b border-primary/5 py-5"
+                  >
+                    <div className="h-36 w-24 shrink-0 overflow-hidden rounded-lg bg-primary/5 shadow-sm">
+                      {book.coverImageUrl ? (
+                        <img
+                          src={book.coverImageUrl}
+                          alt={book.title}
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex size-full items-center justify-center">
+                          <span className="material-symbols-outlined text-2xl text-muted-foreground/40">
+                            menu_book
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <h3 className="line-clamp-2 text-lg font-bold leading-tight text-primary">
+                        {book.title}
+                      </h3>
+                      <p className="truncate text-sm text-muted-foreground">{book.author} 저</p>
+                      <p className="truncate text-xs text-muted-foreground/70">{book.publisher}</p>
+                      {book.inMyLibrary && (
+                        <span className="mt-1 w-fit rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                          내 서재에 있음
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+
+                <div ref={bookSentinelRef} className="h-10" aria-hidden="true" />
+
+                {isBookLoadingMore && (
+                  <p className="py-4 text-center text-xs text-muted-foreground">
+                    더 불러오는 중...
+                  </p>
+                )}
+
+                {bookLoadMoreError && !isBookLoadingMore && (
+                  <div className="flex flex-col items-center gap-2 py-4">
+                    <p role="alert" className="text-sm text-destructive">
+                      {bookLoadMoreError}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={retryLoadMoreBooks}
+                      className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20"
+                    >
+                      다시 불러오기
+                    </button>
+                  </div>
+                )}
+
+                {!bookHasNext && !isBookLoadingMore && !bookLoadMoreError && !isIsbnMode && (
+                  <p className="py-4 text-center text-xs text-muted-foreground/50">
+                    모든 결과를 확인했습니다
+                  </p>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* 유저 탭 */}
+        {activeTab === 'user' && trimmedQuery && (
+          <>
+            {isUserLoading && userResults.length === 0 && (
+              <p
+                role="status"
+                aria-busy="true"
+                className="py-10 text-center text-sm text-muted-foreground"
+              >
+                검색 중...
               </p>
             )}
-          </div>
+
+            {!isUserLoading && userErrorMessage && (
+              <p role="alert" className="py-10 text-center text-sm text-destructive">
+                {userErrorMessage}
+              </p>
+            )}
+
+            {!isUserLoading && !userErrorMessage && userResults.length === 0 && (
+              <div className="flex flex-col items-center gap-3 py-16 text-center">
+                <span className="material-symbols-outlined text-5xl text-muted-foreground/30">
+                  person_search
+                </span>
+                <p className="max-w-full truncate text-sm text-muted-foreground">
+                  &lsquo;{trimmedQuery}&rsquo;에 대한 유저 검색 결과가 없습니다.
+                </p>
+              </div>
+            )}
+
+            {userResults.length > 0 && (
+              <div className="flex flex-col">
+                {userResults.map(user => (
+                  <UserSearchCard key={user.userId} user={user} />
+                ))}
+
+                <div ref={userSentinelRef} className="h-10" aria-hidden="true" />
+
+                {isUserLoadingMore && (
+                  <p className="py-4 text-center text-xs text-muted-foreground">
+                    더 불러오는 중...
+                  </p>
+                )}
+
+                {userLoadMoreError && !isUserLoadingMore && (
+                  <div className="flex flex-col items-center gap-2 py-4">
+                    <p role="alert" className="text-sm text-destructive">
+                      {userLoadMoreError}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={retryLoadMoreUsers}
+                      className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20"
+                    >
+                      다시 불러오기
+                    </button>
+                  </div>
+                )}
+
+                {!userHasNext && !isUserLoadingMore && !userLoadMoreError && (
+                  <p className="py-4 text-center text-xs text-muted-foreground/50">
+                    모든 결과를 확인했습니다
+                  </p>
+                )}
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -421,10 +822,147 @@ export default function BookSearchPage() {
             // 스캔 결과를 검색창에 주입 → ISBN 자동 감지 effect가 ISBN 모드로 분기 (단일 진입점)
             setIsScannerOpen(false)
             setSearchQuery(isbn)
+            setActiveTab('book')
             commitKeyword(isbn)
           }}
         />
       </Suspense>
+    </div>
+  )
+}
+
+/**
+ * 전체 탭 — books/users 두 섹션을 미리보기 N건씩 렌더하고 "더 보기" 클릭 시
+ * 해당 탭으로 점프. 페이징은 도서/유저 탭에서만 수행 (UX 단순화).
+ */
+function AllTabContent({
+  isLoading,
+  errorMessage,
+  books,
+  users,
+  booksHasMore,
+  usersHasMore,
+  previewCount,
+  onJumpToBookTab,
+  onJumpToUserTab,
+  commitKeyword,
+}: {
+  isLoading: boolean
+  errorMessage: string | null
+  books: BookSearchItem[]
+  users: UserSearchItem[]
+  booksHasMore: boolean
+  usersHasMore: boolean
+  previewCount: number
+  onJumpToBookTab: () => void
+  onJumpToUserTab: () => void
+  commitKeyword: () => void
+}) {
+  if (isLoading && books.length === 0 && users.length === 0) {
+    return (
+      <p role="status" aria-busy="true" className="py-10 text-center text-sm text-muted-foreground">
+        검색 중...
+      </p>
+    )
+  }
+
+  if (!isLoading && errorMessage) {
+    return (
+      <p role="alert" className="py-10 text-center text-sm text-destructive">
+        {errorMessage}
+      </p>
+    )
+  }
+
+  if (!isLoading && books.length === 0 && users.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center">
+        <span className="material-symbols-outlined text-5xl text-muted-foreground/30">
+          search_off
+        </span>
+        <p className="text-sm text-muted-foreground">검색 결과가 없습니다.</p>
+      </div>
+    )
+  }
+
+  const previewBooks = books.slice(0, previewCount)
+  const previewUsers = users.slice(0, previewCount)
+  const showBookMoreButton = booksHasMore || books.length > previewCount
+  const showUserMoreButton = usersHasMore || users.length > previewCount
+
+  return (
+    <div className="flex flex-col gap-4 py-2">
+      {previewBooks.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-bold text-primary">도서 ({books.length}건)</h2>
+          <div className="flex flex-col">
+            {previewBooks.map(book => (
+              <Link
+                key={book.bookId}
+                to={`/book/${book.bookId}`}
+                onClick={commitKeyword}
+                className="flex items-start gap-4 border-b border-primary/5 py-4"
+              >
+                <div className="h-24 w-16 shrink-0 overflow-hidden rounded bg-primary/5 shadow-sm">
+                  {book.coverImageUrl ? (
+                    <img
+                      src={book.coverImageUrl}
+                      alt={book.title}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex size-full items-center justify-center">
+                      <span className="material-symbols-outlined text-xl text-muted-foreground/40">
+                        menu_book
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <h3 className="line-clamp-2 text-base font-bold leading-tight text-primary">
+                    {book.title}
+                  </h3>
+                  <p className="truncate text-xs text-muted-foreground">{book.author}</p>
+                  {book.reviewCount > 0 && (
+                    <p className="text-xs text-muted-foreground/70">
+                      ★ {book.averageRating.toFixed(1)} · 감상 {book.reviewCount}개
+                    </p>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+          {showBookMoreButton && (
+            <button
+              type="button"
+              onClick={onJumpToBookTab}
+              className="mt-2 w-full rounded-lg bg-primary/5 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+            >
+              도서 검색 결과 전체 보기
+            </button>
+          )}
+        </section>
+      )}
+
+      {previewUsers.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-bold text-primary">유저 ({users.length}건)</h2>
+          <div className="flex flex-col">
+            {previewUsers.map(user => (
+              <UserSearchCard key={user.userId} user={user} />
+            ))}
+          </div>
+          {showUserMoreButton && (
+            <button
+              type="button"
+              onClick={onJumpToUserTab}
+              className="mt-2 w-full rounded-lg bg-primary/5 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+            >
+              유저 검색 결과 전체 보기
+            </button>
+          )}
+        </section>
+      )}
     </div>
   )
 }
