@@ -33,9 +33,15 @@ export default function AuthCallbackPage() {
       return
     }
 
+    const state = searchParams.get('state')
+    if (!state) {
+      setErrorMessage('잘못된 접근입니다. state 값이 없습니다.')
+      return
+    }
+
     const redirectUri = `${window.location.origin}/auth/callback/google`
 
-    googleLogin(code, redirectUri)
+    googleLogin(code, redirectUri, state)
       .then(result => {
         setAuth(
           {
