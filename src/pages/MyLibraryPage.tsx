@@ -431,27 +431,31 @@ export default function MyLibraryPage() {
               <p className="py-4 text-center text-xs text-muted-foreground">더 불러오는 중...</p>
             )}
 
-            {loadMoreError && !isLoadingMore && (
-              <div className="flex flex-col items-center gap-2 py-4">
-                <p role="alert" className="text-sm text-destructive">
-                  {loadMoreError}
-                </p>
-                <button
-                  type="button"
-                  onClick={retryLoadMore}
-                  className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20"
-                >
-                  다시 불러오기
-                </button>
-              </div>
-            )}
-
             {!hasNext && !isLoadingMore && !loadMoreError && (
               <p className="py-4 text-center text-xs text-muted-foreground/50">
                 모든 도서를 확인했습니다
               </p>
             )}
           </>
+        )}
+
+        {/* [CodeRabbit fix] loadMoreError + 재시도는 그리드(visibleItems > 0)와 검색 빈 결과
+            분기 양쪽에서 모두 보여야 한다. 검색 빈 결과 상태에서 "다음 페이지 불러오기"가 실패해도
+            사용자가 원인을 알 수 있도록 conditional 밖으로 hoist. items가 0건일 땐 errorMessage
+            분기로 가므로 items.length > 0 가드만 추가. */}
+        {items.length > 0 && loadMoreError && !isLoadingMore && (
+          <div className="flex flex-col items-center gap-2 py-4">
+            <p role="alert" className="text-sm text-destructive">
+              {loadMoreError}
+            </p>
+            <button
+              type="button"
+              onClick={retryLoadMore}
+              className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20"
+            >
+              다시 불러오기
+            </button>
+          </div>
         )}
       </main>
 
