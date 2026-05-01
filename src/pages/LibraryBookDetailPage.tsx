@@ -165,13 +165,17 @@ export default function LibraryBookDetailPage() {
     // unknown enum 응답 시 사용자가 방금 선택한 status로 fallback (BookDetailPage와 동일 정책)
     const nextStatus =
       backendToFrontStatus[result.status] != null ? result.status : frontToBackendStatus[status]
+    // [code-review MED fix] #120 — 백엔드가 finished에서 다른 상태로 전환 시 finishedAt을
+    // 비우지 않는 정합성 이슈를 클라이언트 state에서도 정규화. 표시단(showFinished) 분기와
+    // 짝을 맞춰 client state 자체를 깨끗이 유지한다.
+    const normalizedFinishedAt = nextStatus === 'FINISHED' ? result.finishedAt : null
     setDetail(prev =>
       prev
         ? {
             ...prev,
             status: nextStatus,
             startedAt: result.startedAt,
-            finishedAt: result.finishedAt,
+            finishedAt: normalizedFinishedAt,
           }
         : prev
     )
@@ -191,10 +195,12 @@ export default function LibraryBookDetailPage() {
   // 백엔드 enum이 미지원 값이어도 페이지가 크래시하지 않도록 방어
   const frontStatus: ReadingStatus | undefined = backendToFrontStatus[detail.status]
   const status = frontStatus ? statusLabel[frontStatus] : null
-  // 날짜 표시 가시성은 데이터 존재 여부만으로 결정 — frontStatus 매핑이 실패해도(unknown enum) 데이터가 있으면 보여준다.
-  // (frontStatus는 라벨/액션 분기에만 사용)
+  // 시작 날짜는 데이터 존재 여부만으로 표시 (frontStatus 매핑 실패해도 데이터가 있으면 보여준다).
+  // 완료 날짜는 의미상 status가 finished일 때만 보여준다 — 백엔드가 finished에서 다른 상태로
+  // 전환 시 finishedAt을 비우지 않는 데이터 정합성 이슈가 있어 (#120 임시 회피), 표시단에서
+  // 분기. 근본 정리는 LibraryBookService.updateStatus() 백엔드 후속 이슈로 처리.
   const showStarted = detail.startedAt != null
-  const showFinished = detail.finishedAt != null
+  const showFinished = frontStatus === 'finished' && detail.finishedAt != null
   const showPeriod = showStarted || showFinished
   const reading = frontStatus === 'reading'
   // "N일째 읽는 중" 라벨은 의미상 READING 상태에서만 보여야 하므로 status 분기 유지
