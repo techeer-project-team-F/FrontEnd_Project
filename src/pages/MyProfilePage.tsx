@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import BottomNav from '@/components/layout/BottomNav'
 import { getMyProfile, type MyProfile } from '@/api/member'
-import { getMyReviews, type ReviewListItem } from '@/api/review'
+import { getMyReviews, REVIEW_PAGE_SIZE, type ReviewListItem } from '@/api/review'
 import { formatRelativeTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
@@ -36,6 +36,23 @@ const categoryStats = [
   { label: '인문 15%', color: '#EEE3D2' },
 ]
 
+/**
+ * 본인 프로필 페이지.
+ *
+ * 두 개의 독립 fetch effect로 구성:
+ * 1. `getMyProfile` — 상단 프로필(닉네임/bio/팔로워·팔로잉/감상수)을 채우고 `authStore.setAuth`로
+ *    persist 상태를 최신화. `useAuthStore.getState()`로 읽는 이유는 본 컴포넌트가 store를
+ *    selector로 구독하지 않게 하여 `setAuth` 호출이 리렌더 → effect 무한 루프를 일으키지 않도록 함.
+ * 2. `getMyReviews({ status: 'PUBLISHED' })` — 공개 감상 타임라인. 백엔드 `findMyReviews`
+ *    쿼리는 가시성(`reviewVisibility`) 필터가 없어 PUBLIC/PRIVATE이 모두 오므로,
+ *    DRAFT 임시저장은 `status='PUBLISHED'`로 백엔드에서 제외 + PUBLIC 필터는 클라이언트
+ *    표시단(useMemo `visibleReviews`)에서 적용. 후속 백엔드 이슈로 쿼리에 PUBLIC 필터 추가 검토.
+ *
+ * Wisdom Tower / 월별·카테고리 통계는 Library/통계 전용 API 미구현으로 mock 유지(TODO 표시).
+ *
+ * @remarks 페이징은 옵션 A — 응답이 배열이라 `items.length === REVIEW_PAGE_SIZE`로 hasNext
+ * 추론. 마지막 페이지에서 정확히 PAGE_SIZE만 매칭되면 한 번 false-positive 후 빈 배열로 자연 종료.
+ */
 export default function MyProfilePage() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState<MyProfile | null>(null)
@@ -48,7 +65,23 @@ export default function MyProfilePage() {
   const [isReviewsLoadingMore, setIsReviewsLoadingMore] = useState(false)
   const [reviewsErrorMessage, setReviewsErrorMessage] = useState<string | null>(null)
 
+  /**
+   * "더 보기" 클릭 시 만들어지는 abort controller. 사용자가 페이지를 이탈하거나 빠르게
+   * 재클릭하면 진행 중인 요청을 취소하여 unmount 후 setState 경고와 stale 응답 덮어쓰기를 방지.
+   */
+  const loadMoreControllerRef = useRef<AbortController | null>(null)
+
   const maxStatValue = Math.max(...monthlyStats.map(item => item.value))
+
+  /**
+   * 백엔드 `findMyReviews`는 `reviewVisibility` 필터를 적용하지 않아 본인의 PRIVATE 감상도
+   * 응답에 포함된다. "공개 감상 타임라인" 섹션의 의미상 클라이언트 표시단에서 PUBLIC만 노출.
+   * 후속 백엔드 이슈로 쿼리 필터 추가 후 본 메모이제이션 제거 가능.
+   */
+  const visibleReviews = useMemo(
+    () => reviews.filter(r => r.reviewVisibility === 'PUBLIC'),
+    [reviews]
+  )
 
   useEffect(() => {
     const controller = new AbortController()
@@ -95,11 +128,18 @@ export default function MyProfilePage() {
     setReviewsErrorMessage(null)
     ;(async () => {
       try {
-        const response = await getMyReviews({ cursor: null, signal: controller.signal })
+        // status='PUBLISHED'로 임시저장(DRAFT) 제외. 가시성(PUBLIC) 필터는 백엔드 미적용이라
+        // 클라이언트 visibleReviews 메모이제이션에서 처리.
+        const response = await getMyReviews({
+          cursor: null,
+          status: 'PUBLISHED',
+          signal: controller.signal,
+        })
         if (controller.signal.aborted) return
-        setReviews(response.content)
-        setReviewNextCursor(response.nextCursor)
-        setHasMoreReviews(response.hasNext)
+        setReviews(response)
+        // 옵션 A: 마지막 아이템의 reviewId를 다음 cursor로, items.length === PAGE_SIZE이면 hasNext.
+        setReviewNextCursor(response.length > 0 ? response[response.length - 1].reviewId : null)
+        setHasMoreReviews(response.length === REVIEW_PAGE_SIZE)
       } catch (error) {
         if (axios.isCancel(error) || controller.signal.aborted) return
         setReviewsErrorMessage(
@@ -110,25 +150,48 @@ export default function MyProfilePage() {
       }
     })()
 
-    return () => controller.abort()
+    return () => {
+      controller.abort()
+      // 더 보기로 진행 중이던 요청도 함께 취소 — 페이지 이탈 시 unmount 후 setState 방지.
+      loadMoreControllerRef.current?.abort()
+    }
   }, [])
 
+  /**
+   * "더 보기" 핸들러. 진행 중인 이전 요청은 abort 후 새 요청으로 교체하고, 응답에는 cancel
+   * 가드를 적용해 stale 응답이 새 응답을 덮어쓰지 않도록 한다. 빈 응답이 도착하면
+   * `hasMoreReviews=false`로 종료(옵션 A의 false-positive 자연 종료 정책).
+   */
   const handleLoadMoreReviews = async () => {
     if (isReviewsLoadingMore || !hasMoreReviews) return
+
+    loadMoreControllerRef.current?.abort()
+    const controller = new AbortController()
+    loadMoreControllerRef.current = controller
 
     setIsReviewsLoadingMore(true)
     setReviewsErrorMessage(null)
     try {
-      const response = await getMyReviews({ cursor: reviewNextCursor })
-      setReviews(prev => [...prev, ...response.content])
-      setReviewNextCursor(response.nextCursor)
-      setHasMoreReviews(response.hasNext)
+      const response = await getMyReviews({
+        cursor: reviewNextCursor,
+        status: 'PUBLISHED',
+        signal: controller.signal,
+      })
+      if (controller.signal.aborted) return
+      if (response.length === 0) {
+        setHasMoreReviews(false)
+        return
+      }
+      setReviews(prev => [...prev, ...response])
+      setReviewNextCursor(response[response.length - 1].reviewId)
+      setHasMoreReviews(response.length === REVIEW_PAGE_SIZE)
     } catch (error) {
+      if (axios.isCancel(error) || controller.signal.aborted) return
       setReviewsErrorMessage(
         error instanceof Error ? error.message : '감상 목록을 더 불러오지 못했습니다.'
       )
     } finally {
-      setIsReviewsLoadingMore(false)
+      if (!controller.signal.aborted) setIsReviewsLoadingMore(false)
     }
   }
 
@@ -383,13 +446,13 @@ export default function MyProfilePage() {
             <p role="status" className="py-8 text-center text-sm text-muted-foreground">
               감상을 불러오는 중...
             </p>
-          ) : reviews.length === 0 && !reviewsErrorMessage ? (
+          ) : visibleReviews.length === 0 && !reviewsErrorMessage ? (
             <div className="rounded-[24px] bg-card px-5 py-8 text-center text-sm text-muted-foreground">
               아직 공개 감상이 없습니다.
             </div>
           ) : (
             <div className="space-y-4">
-              {reviews.map(review => (
+              {visibleReviews.map(review => (
                 <article
                   key={review.reviewId}
                   onClick={() => navigate(`/review/${review.reviewId}`)}

@@ -4,10 +4,24 @@ import axios from 'axios'
 import AppHeader from '@/components/layout/AppHeader'
 import { getUserProfile, type UserProfile } from '@/api/member'
 import { followUser, unfollowUser } from '@/api/follow'
-import { getUserReviews, type ReviewListItem } from '@/api/review'
+import { getUserReviews, REVIEW_PAGE_SIZE, type ReviewListItem } from '@/api/review'
 import { formatRelativeTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
+/**
+ * 타 유저 프로필 페이지.
+ *
+ * - URL `userId`가 본인이면 `/profile`로 자동 redirect (myUserId 비교).
+ * - 프로필/감상 fetch 두 effect는 `numericUserId` 기반으로 독립 동작.
+ * - 백엔드 `findUserReviews`는 `reviewVisibility='PUBLIC' AND reviewStatus='PUBLISHED'`
+ *   필터를 적용하므로 응답엔 공개·발행분만 들어옴 → 클라이언트 추가 필터 불필요.
+ * - 페이징은 옵션 A — 응답이 배열이라 `items.length === REVIEW_PAGE_SIZE`로 hasNext 추론.
+ *
+ * **Follow 토글 race 가드** (3중 보호):
+ * - `isMountedRef`: 컴포넌트 unmount 후 setState 방지
+ * - `profileIdRef`: 토글 도중 사용자가 다른 프로필로 이동하면 응답 폐기
+ * - `targetId`(클로저 캡처): await 시점의 대상 userId를 닫아둬 응답 도착 시 비교
+ */
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>()
   const navigate = useNavigate()
@@ -27,6 +41,11 @@ export default function UserProfilePage() {
   const isMountedRef = useRef(true)
   // 토글 진행 중 사용자가 다른 프로필로 이동하면, 늦게 도착한 응답이 새 프로필에 잘못 반영되는 것을 방지하기 위한 추적 ref
   const profileIdRef = useRef<number | null>(null)
+  /**
+   * "더 보기" 클릭 시 만들어지는 abort controller. 페이지 이탈/재클릭 시 진행 중 요청을
+   * 취소하여 unmount 후 setState 경고 + stale 응답 덮어쓰기 방지.
+   */
+  const loadMoreReviewsControllerRef = useRef<AbortController | null>(null)
 
   // StrictMode dev 모드에서 effect가 mount → unmount → mount로 더블 인보크되므로
   // setup에서 명시적으로 true로 리셋해 ref가 false로 stuck되지 않도록 한다.
@@ -91,9 +110,10 @@ export default function UserProfilePage() {
           signal: controller.signal,
         })
         if (controller.signal.aborted) return
-        setReviews(response.content)
-        setReviewNextCursor(response.nextCursor)
-        setHasMoreReviews(response.hasNext)
+        setReviews(response)
+        // 옵션 A: 마지막 아이템의 reviewId를 다음 cursor로, items.length === PAGE_SIZE이면 hasNext.
+        setReviewNextCursor(response.length > 0 ? response[response.length - 1].reviewId : null)
+        setHasMoreReviews(response.length === REVIEW_PAGE_SIZE)
       } catch (error) {
         if (axios.isCancel(error) || controller.signal.aborted) return
         setReviewsErrorMessage(
@@ -104,7 +124,10 @@ export default function UserProfilePage() {
       }
     })()
 
-    return () => controller.abort()
+    return () => {
+      controller.abort()
+      loadMoreReviewsControllerRef.current?.abort()
+    }
   }, [userId, isValidId, numericUserId])
 
   if (myUserId && numericUserId === myUserId) {
@@ -145,6 +168,14 @@ export default function UserProfilePage() {
     )
   }
 
+  /**
+   * 팔로우/언팔로우 토글. 진행 도중 사용자가 다른 프로필로 이동하면 늦게 도착한 응답이
+   * 새 프로필에 잘못 반영되지 않도록 3중 stale guard 적용:
+   * - `wasFollowing` 결정 시점 스냅샷
+   * - `targetId` 클로저 캡처
+   * - `isStale()` = `!isMountedRef || profileIdRef !== targetId`
+   * `setIsFollowProcessing(false)`는 stale 여부와 무관하게 항상 reset(영구 disabled 방지).
+   */
   const handleToggleFollow = async () => {
     if (isFollowProcessing) return
     // 결정 시점 스냅샷: 호출 직후 외부에서 profile.isFollowing이 바뀌어도 분기를 일관되게 유지
@@ -195,8 +226,17 @@ export default function UserProfilePage() {
     }
   }
 
+  /**
+   * "더 보기" 핸들러. 이전 in-flight 요청은 abort 후 새 요청으로 교체하고, 응답에는
+   * cancel 가드를 적용해 stale 응답이 새 응답을 덮어쓰지 않도록 한다. 빈 응답이 도착하면
+   * `hasMoreReviews=false`로 종료(옵션 A의 false-positive 자연 종료 정책).
+   */
   const handleLoadMoreReviews = async () => {
     if (isReviewsLoadingMore || !hasMoreReviews) return
+
+    loadMoreReviewsControllerRef.current?.abort()
+    const controller = new AbortController()
+    loadMoreReviewsControllerRef.current = controller
 
     setIsReviewsLoadingMore(true)
     setReviewsErrorMessage(null)
@@ -204,16 +244,23 @@ export default function UserProfilePage() {
       const response = await getUserReviews({
         userId: numericUserId,
         cursor: reviewNextCursor,
+        signal: controller.signal,
       })
-      setReviews(prev => [...prev, ...response.content])
-      setReviewNextCursor(response.nextCursor)
-      setHasMoreReviews(response.hasNext)
+      if (controller.signal.aborted) return
+      if (response.length === 0) {
+        setHasMoreReviews(false)
+        return
+      }
+      setReviews(prev => [...prev, ...response])
+      setReviewNextCursor(response[response.length - 1].reviewId)
+      setHasMoreReviews(response.length === REVIEW_PAGE_SIZE)
     } catch (error) {
+      if (axios.isCancel(error) || controller.signal.aborted) return
       setReviewsErrorMessage(
         error instanceof Error ? error.message : '감상 목록을 더 불러오지 못했습니다.'
       )
     } finally {
-      setIsReviewsLoadingMore(false)
+      if (!controller.signal.aborted) setIsReviewsLoadingMore(false)
     }
   }
 
