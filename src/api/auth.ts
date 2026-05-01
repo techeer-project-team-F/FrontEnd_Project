@@ -196,11 +196,15 @@ export async function logout(): Promise<void> {
   }
 }
 
-export async function googleLogin(code: string, redirectUri: string): Promise<GoogleLoginResponse> {
+export async function googleLogin(
+  code: string,
+  redirectUri: string,
+  state: string
+): Promise<GoogleLoginResponse> {
   try {
     const { data } = await apiClient.post<ApiResponse<GoogleLoginResponse>>(
       '/api/v1/auth/oauth2/google/login',
-      { code, redirectUri }
+      { code, redirectUri, state }
     )
     if (!data.data) {
       throw new Error(data.message ?? 'Google 로그인 응답이 올바르지 않습니다.')
