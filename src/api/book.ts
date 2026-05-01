@@ -66,7 +66,16 @@ export async function getBookByIsbn(isbn13: string, signal?: AbortSignal): Promi
     }
     return data.data
   } catch (error) {
-    throw normalizeAxiosError(error, 'ISBN으로 도서를 찾지 못했습니다. 잠시 후 다시 시도해주세요.')
+    // ISBN 조회는 백엔드 `findOrCreateBook`(알라딘 호출 + DB save)을 거치므로
+    // 검색과 동일하게 ISBN 중복 결함으로 409가 발생할 수 있어 도메인 무관
+    // 일반 메시지로 치환 (docs/통합_검색_백엔드_결함_보고.md 참고).
+    throw normalizeAxiosError(
+      error,
+      'ISBN으로 도서를 찾지 못했습니다. 잠시 후 다시 시도해주세요.',
+      {
+        suppress409Message: true,
+      }
+    )
   }
 }
 
@@ -93,6 +102,10 @@ export async function searchBooks(
     }
     return data.data
   } catch (error) {
-    throw normalizeAxiosError(error, '도서 검색에 실패했습니다. 잠시 후 다시 시도해주세요.')
+    // 도서 검색은 백엔드 알라딘 ISBN 중복 결함으로 409가 발생할 수 있어
+    // 도메인 무관 일반 메시지로 치환 (docs/통합_검색_백엔드_결함_보고.md 참고).
+    throw normalizeAxiosError(error, '도서 검색에 실패했습니다. 잠시 후 다시 시도해주세요.', {
+      suppress409Message: true,
+    })
   }
 }

@@ -109,6 +109,10 @@ export async function searchAll({
     })
     return parseApiResponse(data, '검색 응답이 올바르지 않습니다.')
   } catch (error) {
-    throw normalizeAxiosError(error, '검색에 실패했습니다. 잠시 후 다시 시도해주세요.')
+    // 통합 검색은 백엔드 알라딘 ISBN 중복 결함으로 409가 발생할 수 있어
+    // 도메인 무관 일반 메시지로 치환 (docs/통합_검색_백엔드_결함_보고.md 참고).
+    throw normalizeAxiosError(error, '검색에 실패했습니다. 잠시 후 다시 시도해주세요.', {
+      suppress409Message: true,
+    })
   }
 }
