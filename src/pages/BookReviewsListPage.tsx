@@ -15,9 +15,9 @@ import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
 import StarRating from '@/components/common/StarRating'
 
-const sortOptions: { label: string; value: BookReviewSort }[] = [
+const sortOptions: { label: string; value: BookReviewSort; disabled?: boolean }[] = [
   { label: '최신순', value: 'latest' },
-  { label: '인기순', value: 'popular' },
+  { label: '인기순 (준비 중)', value: 'popular', disabled: true },
   { label: '별점 높은순', value: 'rating_high' },
   { label: '별점 낮은순', value: 'rating_low' },
 ]
@@ -95,6 +95,7 @@ export default function BookReviewsListPage() {
   useEffect(() => {
     if (!Number.isFinite(bookId)) return
 
+    moreControllerRef.current?.abort()
     const controller = new AbortController()
     setIsLoading(true)
     setErrorMessage(null)
@@ -102,6 +103,8 @@ export default function BookReviewsListPage() {
     setNextCursor(null)
     setNextCursorRating(null)
     setHasNext(false)
+    setIsLoadingMore(false)
+    setLoadMoreError(null)
     setRevealedSpoilers(new Set())
     ;(async () => {
       try {
@@ -305,12 +308,15 @@ export default function BookReviewsListPage() {
               <button
                 type="button"
                 key={option.value}
-                onClick={() => setActiveSort(option.value)}
+                onClick={() => !option.disabled && setActiveSort(option.value)}
+                disabled={option.disabled}
                 className={cn(
                   'whitespace-nowrap rounded-full px-5 py-2 text-sm font-semibold transition-colors',
-                  activeSort === option.value
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                    : 'border border-primary/10 bg-primary/5 text-primary'
+                  option.disabled
+                    ? 'border border-primary/10 bg-muted text-muted-foreground opacity-50'
+                    : activeSort === option.value
+                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                      : 'border border-primary/10 bg-primary/5 text-primary'
                 )}
               >
                 {option.label}

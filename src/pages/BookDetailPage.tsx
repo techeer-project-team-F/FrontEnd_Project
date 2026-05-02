@@ -74,6 +74,7 @@ export default function BookDetailPage() {
     const controller = new AbortController()
     setIsLoading(true)
     setErrorMessage(null)
+    setPreviewReviews([])
     ;(async () => {
       try {
         const [result, reviewResult] = await Promise.all([
