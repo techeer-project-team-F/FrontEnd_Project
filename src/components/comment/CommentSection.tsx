@@ -259,7 +259,7 @@ export default function CommentSection({
 
   const handleToggleLike = async (
     commentId: number,
-    parentCommentId: number | null,
+    _parentCommentId: number | null,
     currentlyLiked: boolean,
     currentLikeCount: number
   ) => {
