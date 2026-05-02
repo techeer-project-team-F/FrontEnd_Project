@@ -144,6 +144,8 @@ export default function WriteReviewPage() {
         rating,
         // [HIGH-1 fix] 사용자가 토글로 명시적으로 표시한 값을 그대로 전송 (이전엔 false 고정)
         isSpoiler,
+        reviewVisibility: 'PUBLIC' as const,
+        reviewStatus: 'PUBLISHED' as const,
       }
 
       if (isEditMode) {

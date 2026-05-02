@@ -59,9 +59,10 @@ function buildNotificationMessage(n: NotificationItem): string {
 function resolveDestination(n: NotificationItem): string | null {
   switch (n.type) {
     case 'REVIEW_LIKE':
+      return n.reviewId != null ? `/review/${n.reviewId}` : null
     case 'COMMENT':
     case 'COMMENT_LIKE':
-      return n.reviewId != null ? `/review/${n.reviewId}` : null
+      return n.reviewId != null ? `/review/${n.reviewId}#comments` : null
     case 'FOLLOW':
       return n.actor ? `/user/${n.actor.userId}` : null
     case 'SYSTEM':
