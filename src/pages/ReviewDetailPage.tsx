@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
-import { deleteReview, getReviewDetail, type ReviewDetail } from '@/api/review'
+import { cn } from '@/lib/utils'
+import {
+  deleteReview,
+  getReviewDetail,
+  likeReview,
+  unlikeReview,
+  type ReviewDetail,
+} from '@/api/review'
 import { backendToFrontStatus } from '@/api/library'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
@@ -35,6 +42,9 @@ export default function ReviewDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [displayCommentCount, setDisplayCommentCount] = useState<number | null>(null)
+  const [liked, setLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(0)
+  const [isLiking, setIsLiking] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null)
@@ -53,6 +63,8 @@ export default function ReviewDetailPage() {
       try {
         const result = await getReviewDetail(reviewId, controller.signal)
         setReview(result)
+        setLiked(result.isLiked)
+        setLikeCount(result.likeCount)
       } catch (error) {
         // [MED-1 fix] try 블록 내 controller.signal.aborted 가드는 사실상 도달 불가
         // (요청이 abort되면 axios가 throw로 빠짐) + _helpers.ts의 normalizeAxiosError가
@@ -147,6 +159,26 @@ export default function ReviewDetailPage() {
   const coverImageUrl = review.book.coverImageUrl
   const isMyReview = currentUserId != null && review.user.userId === currentUserId
   const reviewHeading = isMyReview ? '나의 감상' : `${review.user.nickname}의 감상`
+
+  const handleToggleLike = async () => {
+    if (isLiking) return
+    const wasLiked = liked
+    const prevCount = likeCount
+    setLiked(!wasLiked)
+    setLikeCount(prevCount + (wasLiked ? -1 : 1))
+    setIsLiking(true)
+    try {
+      const result = wasLiked
+        ? await unlikeReview(review.reviewId)
+        : await likeReview(review.reviewId)
+      setLikeCount(result.likeCount)
+    } catch {
+      setLiked(wasLiked)
+      setLikeCount(prevCount)
+    } finally {
+      setIsLiking(false)
+    }
+  }
 
   const handleDeleteReview = async () => {
     setIsDeleting(true)
@@ -280,20 +312,32 @@ export default function ReviewDetailPage() {
         <section className="mt-4 border-t border-border px-5 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-5 text-sm font-semibold text-muted-foreground">
-              <button
-                type="button"
-                disabled
-                aria-label="좋아요 (준비 중)"
-                className="flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <span
-                  className="material-symbols-outlined text-[20px]"
-                  style={{ fontVariationSettings: `'FILL' ${review.isLiked ? 1 : 0}` }}
+              {!isMyReview && (
+                <button
+                  type="button"
+                  onClick={handleToggleLike}
+                  disabled={isLiking}
+                  aria-label={liked ? '좋아요 취소' : '좋아요'}
+                  className={cn(
+                    'flex items-center gap-1.5 transition-colors disabled:opacity-60',
+                    liked ? 'text-primary' : 'hover:text-primary'
+                  )}
                 >
-                  favorite
-                </span>
-                <span>{review.likeCount}</span>
-              </button>
+                  <span
+                    className="material-symbols-outlined text-[20px]"
+                    style={{ fontVariationSettings: `'FILL' ${liked ? 1 : 0}` }}
+                  >
+                    favorite
+                  </span>
+                  <span>{likeCount}</span>
+                </button>
+              )}
+              {isMyReview && likeCount > 0 && (
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+                  <span className="material-symbols-outlined text-[20px]">favorite</span>
+                  <span>{likeCount}</span>
+                </div>
+              )}
 
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[20px]">chat_bubble</span>

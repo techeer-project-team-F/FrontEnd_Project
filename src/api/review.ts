@@ -240,3 +240,41 @@ export async function deleteReview(reviewId: number): Promise<void> {
     throw normalizeAxiosError(error, '감상을 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.')
   }
 }
+
+export interface ReviewLikeResponse {
+  reviewId: number
+  likeCount: number
+}
+
+/**
+ * 감상에 좋아요를 누른다.
+ *
+ * 본인 감상이면 400 `SELF_LIKE_NOT_ALLOWED`, 이미 좋아요면 409 `ALREADY_REVIEW_LIKED`.
+ * UI에서 본인 감상 좋아요 버튼을 미노출해 사전 차단하지만 백엔드도 방어.
+ */
+export async function likeReview(reviewId: number): Promise<ReviewLikeResponse> {
+  try {
+    const { data } = await apiClient.post<ApiResponse<ReviewLikeResponse>>(
+      `/api/v1/reviews/${reviewId}/likes`
+    )
+    return parseApiResponse(data, '좋아요 응답이 올바르지 않습니다.')
+  } catch (error) {
+    throw normalizeAxiosError(error, '좋아요에 실패했습니다.')
+  }
+}
+
+/**
+ * 감상 좋아요를 취소한다.
+ *
+ * 좋아요 기록이 없으면 404 `REVIEW_LIKE_NOT_FOUND`.
+ */
+export async function unlikeReview(reviewId: number): Promise<ReviewLikeResponse> {
+  try {
+    const { data } = await apiClient.delete<ApiResponse<ReviewLikeResponse>>(
+      `/api/v1/reviews/${reviewId}/likes`
+    )
+    return parseApiResponse(data, '좋아요 취소 응답이 올바르지 않습니다.')
+  } catch (error) {
+    throw normalizeAxiosError(error, '좋아요 취소에 실패했습니다.')
+  }
+}

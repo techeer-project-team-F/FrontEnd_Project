@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { likeReview, unlikeReview } from '@/api/review'
 import { cn, formatRelativeTime } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
 import type { Memo } from '@/types'
 import StarRating from './StarRating'
 
@@ -17,14 +19,50 @@ const statusLabel: Record<string, { text: string; variant: 'solid' | 'outline' }
 }
 
 export default function ReviewCard({ review, className }: ReviewCardProps) {
+  const currentUserId = useAuthStore(state => state.user?.id)
+  const isMyReview = currentUserId != null && review.author.id === currentUserId
+
   const [spoilerRevealed, setSpoilerRevealed] = useState(false)
   const [liked, setLiked] = useState(review.isLiked)
   const [likeCount, setLikeCount] = useState(review.likeCount)
+  const [isLiking, setIsLiking] = useState(false)
   const status = review.readingStatus ? statusLabel[review.readingStatus] : null
 
-  const toggleLike = () => {
-    setLiked(prev => !prev)
-    setLikeCount(prev => (liked ? prev - 1 : prev + 1))
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    setLiked(review.isLiked)
+    setLikeCount(review.likeCount)
+  }, [review.id, review.isLiked, review.likeCount])
+
+  /**
+   * 낙관적 토글 + 롤백. 즉시 UI 반영 후 API 호출, 실패 시 원래 값으로 복원.
+   * `isLiking` 가드로 연타 방지, `isMountedRef`로 언마운트 후 setState 방지.
+   */
+  const toggleLike = async () => {
+    if (isLiking) return
+    const wasLiked = liked
+    const prevCount = likeCount
+    setLiked(!wasLiked)
+    setLikeCount(prevCount + (wasLiked ? -1 : 1))
+    setIsLiking(true)
+    try {
+      const result = wasLiked ? await unlikeReview(review.id) : await likeReview(review.id)
+      if (!isMountedRef.current) return
+      setLikeCount(result.likeCount)
+    } catch {
+      if (!isMountedRef.current) return
+      setLiked(wasLiked)
+      setLikeCount(prevCount)
+    } finally {
+      if (isMountedRef.current) setIsLiking(false)
+    }
   }
 
   const cardClassName = cn(
@@ -121,21 +159,29 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
 
       {/* Actions */}
       <div className="flex items-center gap-6 border-t border-primary/5 pt-2">
-        <button
-          onClick={e => {
-            e.preventDefault()
-            toggleLike()
-          }}
-          className={cn(
-            'flex items-center gap-1.5 transition-colors hover:text-primary',
-            liked && 'text-primary'
-          )}
-        >
-          <span className={cn('material-symbols-outlined text-xl', liked && 'fill-icon')}>
-            favorite
-          </span>
-          <span className="text-xs font-bold">{likeCount}</span>
-        </button>
+        {!isMyReview ? (
+          <button
+            onClick={e => {
+              e.preventDefault()
+              toggleLike()
+            }}
+            disabled={isLiking}
+            className={cn(
+              'flex items-center gap-1.5 transition-colors disabled:opacity-60',
+              liked ? 'text-primary' : 'hover:text-primary'
+            )}
+          >
+            <span className={cn('material-symbols-outlined text-xl', liked && 'fill-icon')}>
+              favorite
+            </span>
+            <span className="text-xs font-bold">{likeCount}</span>
+          </button>
+        ) : likeCount > 0 ? (
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="material-symbols-outlined text-xl">favorite</span>
+            <span className="text-xs font-bold">{likeCount}</span>
+          </div>
+        ) : null}
         <button
           onClick={e => e.preventDefault()}
           className="flex items-center gap-1.5 transition-colors hover:text-primary"
