@@ -46,6 +46,7 @@ export default function BookReviewsListPage() {
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
   const [revealedSpoilers, setRevealedSpoilers] = useState<Set<number>>(new Set())
 
+  const likingIdsRef = useRef(new Set<number>())
   const observerRef = useRef<IntersectionObserver | null>(null)
   const moreControllerRef = useRef<AbortController | null>(null)
   const stateRef = useRef({
@@ -67,13 +68,32 @@ export default function BookReviewsListPage() {
     activeSort,
   }
 
-  // 도서 정보 + 첫 페이지 로드
+  // 도서 정보 로드 — bookId에만 의존
   useEffect(() => {
     if (!Number.isFinite(bookId)) {
       setErrorMessage('도서 정보가 올바르지 않습니다.')
       setIsLoading(false)
       return
     }
+
+    const controller = new AbortController()
+    ;(async () => {
+      try {
+        const result = await getBook(bookId, controller.signal)
+        if (controller.signal.aborted) return
+        setBook(result)
+      } catch (error) {
+        if (axios.isCancel(error) || controller.signal.aborted) return
+        setErrorMessage(error instanceof Error ? error.message : '도서 정보를 불러오지 못했습니다.')
+      }
+    })()
+
+    return () => controller.abort()
+  }, [bookId])
+
+  // 감상 목록 로드 — bookId + activeSort 변경 시 초기화 + 재로드
+  useEffect(() => {
+    if (!Number.isFinite(bookId)) return
 
     const controller = new AbortController()
     setIsLoading(true)
@@ -85,12 +105,12 @@ export default function BookReviewsListPage() {
     setRevealedSpoilers(new Set())
     ;(async () => {
       try {
-        const [bookResult, reviewResult] = await Promise.all([
-          getBook(bookId, controller.signal),
-          getBookReviews(bookId, { sort: activeSort, limit: 20, signal: controller.signal }),
-        ])
+        const reviewResult = await getBookReviews(bookId, {
+          sort: activeSort,
+          limit: 20,
+          signal: controller.signal,
+        })
         if (controller.signal.aborted) return
-        setBook(bookResult)
         setReviews(reviewResult.content)
         setNextCursor(reviewResult.nextCursor)
         setNextCursorRating(reviewResult.nextCursorRating)
@@ -107,7 +127,6 @@ export default function BookReviewsListPage() {
       controller.abort()
       moreControllerRef.current?.abort()
     }
-    // activeSort 변경 시 목록 초기화 + 재로드
   }, [bookId, activeSort])
 
   const fetchMore = useCallback(async () => {
@@ -132,15 +151,14 @@ export default function BookReviewsListPage() {
       setReviews(prev => {
         const existingIds = new Set(prev.map(r => r.reviewId))
         const deduped = response.content.filter(r => !existingIds.has(r.reviewId))
-        if (deduped.length === 0) {
-          setHasNext(false)
-          return prev
-        }
+        return deduped.length > 0 ? [...prev, ...deduped] : prev
+      })
+      const hasNewItems = response.content.length > 0
+      if (hasNewItems) {
         setNextCursor(response.nextCursor)
         setNextCursorRating(response.nextCursorRating)
-        setHasNext(response.hasNext)
-        return [...prev, ...deduped]
-      })
+      }
+      setHasNext(hasNewItems && response.hasNext)
     } catch (error) {
       if (axios.isCancel(error) || controller.signal.aborted) return
       setLoadMoreError(error instanceof Error ? error.message : '추가 로딩에 실패했습니다.')
@@ -176,6 +194,8 @@ export default function BookReviewsListPage() {
     currentlyLiked: boolean,
     currentCount: number
   ) => {
+    if (likingIdsRef.current.has(reviewId)) return
+    likingIdsRef.current.add(reviewId)
     setReviews(prev =>
       prev.map(r =>
         r.reviewId === reviewId
@@ -194,6 +214,8 @@ export default function BookReviewsListPage() {
           r.reviewId === reviewId ? { ...r, isLiked: currentlyLiked, likeCount: currentCount } : r
         )
       )
+    } finally {
+      likingIdsRef.current.delete(reviewId)
     }
   }
 
@@ -281,6 +303,7 @@ export default function BookReviewsListPage() {
           <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2 pr-6">
             {sortOptions.map(option => (
               <button
+                type="button"
                 key={option.value}
                 onClick={() => setActiveSort(option.value)}
                 className={cn(
@@ -367,10 +390,12 @@ export default function BookReviewsListPage() {
                 <div className="mt-4 flex items-center gap-6 text-muted-foreground">
                   {!isMyReview ? (
                     <button
+                      type="button"
                       onClick={e => {
                         e.stopPropagation()
                         handleToggleLike(review.reviewId, review.isLiked, review.likeCount)
                       }}
+                      aria-label={review.isLiked ? '좋아요 취소' : '좋아요'}
                       className={cn(
                         'flex items-center gap-1 transition-colors',
                         review.isLiked ? 'text-primary' : 'hover:text-primary'

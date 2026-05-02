@@ -304,9 +304,15 @@ export default function BookDetailPage() {
                       </div>
                       <StarRating rating={review.rating} size="sm" />
                     </div>
-                    <p className="line-clamp-2 text-sm leading-relaxed text-foreground/80">
-                      {review.content}
-                    </p>
+                    {review.isSpoiler ? (
+                      <p className="line-clamp-2 text-sm italic text-muted-foreground">
+                        스포일러 포함 — 전체보기에서 확인하세요
+                      </p>
+                    ) : (
+                      <p className="line-clamp-2 text-sm leading-relaxed text-foreground/80">
+                        {review.content}
+                      </p>
+                    )}
                     <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
                       {review.likeCount > 0 && (
                         <span className="flex items-center gap-1">
