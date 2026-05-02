@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { likeReview, unlikeReview } from '@/api/review'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
@@ -19,6 +19,7 @@ const statusLabel: Record<string, { text: string; variant: 'solid' | 'outline' }
 }
 
 export default function ReviewCard({ review, className }: ReviewCardProps) {
+  const navigate = useNavigate()
   const currentUserId = useAuthStore(state => state.user?.id)
   const isMyReview = currentUserId != null && review.author.id === currentUserId
 
@@ -184,7 +185,10 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
           </div>
         ) : null}
         <button
-          onClick={e => e.preventDefault()}
+          onClick={e => {
+            e.preventDefault()
+            navigate(`/review/${review.id}#comments`)
+          }}
           className="flex items-center gap-1.5 transition-colors hover:text-primary"
         >
           <span className="material-symbols-outlined text-xl">chat_bubble</span>
