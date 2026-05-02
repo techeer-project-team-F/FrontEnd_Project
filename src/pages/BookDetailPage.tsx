@@ -5,8 +5,15 @@ import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
 import StarRating from '@/components/common/StarRating'
 import AddToLibrarySheet from '@/components/common/AddToLibrarySheet'
-import { getBook, type BookDetail, type BackendReadingStatus } from '@/api/book'
+import {
+  getBook,
+  getBookReviews,
+  type BookDetail,
+  type BookReviewItem,
+  type BackendReadingStatus,
+} from '@/api/book'
 import { addLibraryBook, updateLibraryBookStatus } from '@/api/library'
+import { formatRelativeTime } from '@/lib/utils'
 import type { ReadingStatus } from '@/types'
 
 const statusEmoji: Record<ReadingStatus, string> = {
@@ -42,6 +49,7 @@ export default function BookDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [savedStatus, setSavedStatus] = useState<ReadingStatus | null>(null)
+  const [previewReviews, setPreviewReviews] = useState<BookReviewItem[]>([])
   const isMountedRef = useRef(true)
 
   // StrictMode dev 모드에서 effect가 mount → unmount → mount로 더블 인보크되므로
@@ -68,10 +76,14 @@ export default function BookDetailPage() {
     setErrorMessage(null)
     ;(async () => {
       try {
-        const result = await getBook(parsedBookId, controller.signal)
+        const [result, reviewResult] = await Promise.all([
+          getBook(parsedBookId, controller.signal),
+          getBookReviews(parsedBookId, { limit: 3, signal: controller.signal }).catch(() => null),
+        ])
         if (controller.signal.aborted) return
         setBook(result)
         setSavedStatus(toFrontStatus(result.myLibraryStatus))
+        if (reviewResult) setPreviewReviews(reviewResult.content)
       } catch (error) {
         if (axios.isCancel(error) || controller.signal.aborted) return
         setErrorMessage(error instanceof Error ? error.message : '도서 정보를 불러오지 못했습니다.')
@@ -252,14 +264,67 @@ export default function BookDetailPage() {
               전체보기
             </Link>
           </div>
-          {/* TODO(B3): 도서별 감상 목록 API 연동 시 미리보기 리스트 표시 */}
           <div className="px-6">
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-primary/10 py-8 text-center">
-              <span className="material-symbols-outlined text-3xl text-muted-foreground/40">
-                menu_book
-              </span>
-              <p className="text-sm text-muted-foreground">전체보기에서 모든 감상을 확인하세요</p>
-            </div>
+            {previewReviews.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-primary/10 py-8 text-center">
+                <span className="material-symbols-outlined text-3xl text-muted-foreground/40">
+                  rate_review
+                </span>
+                <p className="text-sm text-muted-foreground">아직 감상이 없습니다</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {previewReviews.map(review => (
+                  <Link
+                    key={review.reviewId}
+                    to={`/review/${review.reviewId}`}
+                    className="rounded-xl bg-card p-4 shadow-sm transition-colors hover:bg-primary/5"
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="size-7 overflow-hidden rounded-full bg-primary/10">
+                          {review.user.profileImageUrl ? (
+                            <img
+                              src={review.user.profileImageUrl}
+                              alt={review.user.nickname}
+                              className="size-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex size-full items-center justify-center">
+                              <span className="material-symbols-outlined text-[14px] text-primary/40">
+                                person
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-sm font-bold">{review.user.nickname}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatRelativeTime(review.createdAt)}
+                        </span>
+                      </div>
+                      <StarRating rating={review.rating} size="sm" />
+                    </div>
+                    <p className="line-clamp-2 text-sm leading-relaxed text-foreground/80">
+                      {review.content}
+                    </p>
+                    <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                      {review.likeCount > 0 && (
+                        <span className="flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[14px]">favorite</span>
+                          {review.likeCount}
+                        </span>
+                      )}
+                      {review.commentCount > 0 && (
+                        <span className="flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[14px]">chat_bubble</span>
+                          {review.commentCount}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>

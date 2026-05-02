@@ -1,5 +1,5 @@
 import apiClient from './client'
-import { ApiResponse, normalizeAxiosError } from './_helpers'
+import { ApiResponse, normalizeAxiosError, parseApiResponse } from './_helpers'
 
 export interface BookSummary {
   bookId: number
@@ -107,5 +107,71 @@ export async function searchBooks(
     throw normalizeAxiosError(error, '도서 검색에 실패했습니다. 잠시 후 다시 시도해주세요.', {
       suppress409Message: true,
     })
+  }
+}
+
+export interface BookReviewUser {
+  userId: number
+  nickname: string
+  profileImageUrl: string | null
+}
+
+export interface BookReviewItem {
+  reviewId: number
+  user: BookReviewUser
+  rating: number
+  content: string
+  quote: string | null
+  isSpoiler: boolean
+  likeCount: number
+  commentCount: number
+  isLiked: boolean
+  createdAt: string
+}
+
+export interface BookReviewListResponse {
+  content: BookReviewItem[]
+  nextCursor: number | null
+  nextCursorRating: number | null
+  hasNext: boolean
+  size: number
+}
+
+export type BookReviewSort = 'latest' | 'popular' | 'rating_high' | 'rating_low'
+
+/**
+ * 도서별 감상 목록을 조회한다.
+ *
+ * 정렬 중 `rating_high`/`rating_low`는 복합 커서(`cursorRating` + `cursor`)를 사용.
+ * `latest`/`popular`는 단일 `cursor`만 사용.
+ * `isLiked`는 백엔드에서 실제 연동됨 (BookService.getBookReviews에서 findLikedReviewIds 사용).
+ */
+export async function getBookReviews(
+  bookId: number,
+  options?: {
+    sort?: BookReviewSort
+    cursor?: number | null
+    cursorRating?: number | null
+    limit?: number
+    signal?: AbortSignal
+  }
+): Promise<BookReviewListResponse> {
+  const { sort = 'latest', cursor, cursorRating, limit = 20, signal } = options ?? {}
+  try {
+    const { data } = await apiClient.get<ApiResponse<BookReviewListResponse>>(
+      `/api/v1/books/${bookId}/reviews`,
+      {
+        params: {
+          sort,
+          limit,
+          ...(cursor != null ? { cursor } : {}),
+          ...(cursorRating != null ? { cursorRating } : {}),
+        },
+        signal,
+      }
+    )
+    return parseApiResponse(data, '감상 목록 응답이 올바르지 않습니다.')
+  } catch (error) {
+    throw normalizeAxiosError(error, '감상 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
   }
 }
