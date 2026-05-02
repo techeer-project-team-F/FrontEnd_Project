@@ -145,17 +145,7 @@ export default function ReviewDetailPage() {
       : [review.book.author, review.book.publisher, reviewStatus].filter((tag): tag is string =>
           Boolean(tag)
         )
-  // [MED-2 fix] 이전엔 quote 결정은 ?? (null/undefined만 fallthrough), source 결정은 || (빈 문자열도 falsy)
-  // 라 백엔드가 quote: ""를 보내면 quote 자리에 빈 문자열이 렌더되면서 라벨은 '감상 중에서'로
-  // 잘못 표기되는 미스매치가 있었다. 두 분기 모두 || 기준으로 통일하고 hasOwnQuote 플래그로
-  // 라벨을 정확히 결정하도록 수정.
-  const hasOwnQuote = Boolean(review.quote)
-  const quote = review.quote || review.book.description || review.content
-  const quoteSource = hasOwnQuote
-    ? '감상 중에서'
-    : review.book.description
-      ? '도서 소개'
-      : '감상 중에서'
+  const hasQuote = Boolean(review.quote)
   const coverImageUrl = review.book.coverImageUrl
   const isMyReview = currentUserId != null && review.user.userId === currentUserId
   const reviewHeading = isMyReview ? '나의 감상' : `${review.user.nickname}의 감상`
@@ -274,19 +264,21 @@ export default function ReviewDetailPage() {
           </div>
         </section>
 
-        {/* Quote Card */}
-        <section className="px-5 py-5">
-          <div className="rounded-[24px] bg-primary/5 p-5">
-            <div className="mb-2 text-primary/20">
-              <span className="material-symbols-outlined text-[38px]">format_quote</span>
-            </div>
+        {/* Quote Card — 인용구가 있을 때만 노출 */}
+        {hasQuote && (
+          <section className="px-5 py-5">
+            <div className="rounded-[24px] bg-primary/5 p-5">
+              <div className="mb-2 text-primary/20">
+                <span className="material-symbols-outlined text-[38px]">format_quote</span>
+              </div>
 
-            <div className="border-l-4 border-primary pl-4">
-              <p className="text-xl italic leading-9 text-foreground/85">{quote}</p>
-              <p className="mt-4 text-base text-muted-foreground">{quoteSource}</p>
+              <div className="border-l-4 border-primary pl-4">
+                <p className="text-xl italic leading-9 text-foreground/85">{review.quote}</p>
+                <p className="mt-4 text-base text-muted-foreground">감상 중에서</p>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Tags */}
         <section className="px-5 py-2">

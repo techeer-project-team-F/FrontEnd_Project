@@ -188,6 +188,9 @@ export default function BookSearchPage() {
   // 바뀌는 경우(브라우저 뒤로/앞으로, deep link 직접 진입, 다른 컴포넌트의 navigate)
   // 본 effect가 그 변경을 컴포넌트에 반영. 같은 값일 때는 setState가 no-op이라
   // 양방향 effect 사이의 무한 루프는 발생하지 않는다.
+  // URL → state 동기화. searchParams 객체는 매 렌더마다 새 인스턴스라
+  // deps에 넣으면 무한 루프가 발생. toString()으로 값 기반 비교.
+  const searchParamsString = searchParams.toString()
   useEffect(() => {
     const urlQuery = searchParams.get('q') ?? ''
     const urlTabRaw = searchParams.get('tab')
@@ -197,7 +200,7 @@ export default function BookSearchPage() {
     // searchQuery/activeTab은 의도적으로 deps에서 제외 — 이 effect는 URL이
     // 바뀔 때만 동기화하면 충분하고, state가 deps에 들어가면 루프 위험.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+  }, [searchParamsString])
 
   // URL 쿼리 동기화 — 탭/검색어 변경 시 ?tab=...&q=... 업데이트
   useEffect(() => {
@@ -417,9 +420,17 @@ export default function BookSearchPage() {
       const response = await searchBooks(requestedQuery, 20, requestedCursor, controller.signal)
       if (controller.signal.aborted) return
       if (stateRef.current.trimmedQuery !== requestedQuery) return
-      setBookResults(prev => [...prev, ...response.content])
-      setBookNextCursor(response.nextCursor)
-      setBookHasNext(response.hasNext)
+      setBookResults(prev => {
+        const existingIds = new Set(prev.map(b => b.bookId))
+        const deduped = response.content.filter(b => !existingIds.has(b.bookId))
+        if (deduped.length === 0) {
+          setBookHasNext(false)
+          return prev
+        }
+        setBookNextCursor(response.nextCursor)
+        setBookHasNext(response.hasNext)
+        return [...prev, ...deduped]
+      })
     } catch (error) {
       if (axios.isCancel(error) || controller.signal.aborted) return
       if (stateRef.current.trimmedQuery !== requestedQuery) return
