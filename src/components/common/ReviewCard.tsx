@@ -166,6 +166,7 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
               toggleLike()
             }}
             disabled={isLiking}
+            aria-label={liked ? '좋아요 취소' : '좋아요'}
             className={cn(
               'flex items-center gap-1.5 transition-colors disabled:opacity-60',
               liked ? 'text-primary' : 'hover:text-primary'
