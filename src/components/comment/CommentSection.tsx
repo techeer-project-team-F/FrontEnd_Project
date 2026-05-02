@@ -72,6 +72,10 @@ export default function CommentSection({
     const controller = new AbortController()
     setIsLoading(true)
     setErrorMessage(null)
+    setComments([])
+    setNextCursor(null)
+    setHasNext(false)
+    setCommentCount(initialCommentCount)
     ;(async () => {
       try {
         const response = await getComments(reviewId, null, 20, controller.signal)
@@ -90,7 +94,7 @@ export default function CommentSection({
       controller.abort()
       moreControllerRef.current?.abort()
     }
-  }, [reviewId])
+  }, [reviewId, initialCommentCount])
 
   const fetchMore = useCallback(async () => {
     const s = stateRef.current
