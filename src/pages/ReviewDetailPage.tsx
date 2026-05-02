@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { deleteReview, getReviewDetail, type ReviewDetail } from '@/api/review'
 import { backendToFrontStatus } from '@/api/library'
@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import CommentSection from '@/components/comment/CommentSection'
 import { useAuthStore } from '@/store/authStore'
 import type { ReadingStatus } from '@/types'
 
@@ -26,11 +27,14 @@ const readingStatusLabel: Record<ReadingStatus, string> = {
 export default function ReviewDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const currentUserId = useAuthStore(state => state.user?.id)
+  const commentSectionRef = useRef<HTMLDivElement>(null)
   const reviewId = Number(id)
   const [review, setReview] = useState<ReviewDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [displayCommentCount, setDisplayCommentCount] = useState<number | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null)
@@ -63,6 +67,17 @@ export default function ReviewDetailPage() {
 
     return () => controller.abort()
   }, [reviewId])
+
+  // 알림에서 #comments 해시로 진입 시 댓글 섹션으로 스크롤.
+  // CommentSection의 첫 렌더가 완료된 뒤 스크롤해야 하므로 짧은 지연 사용.
+  useEffect(() => {
+    if (review && location.hash === '#comments' && commentSectionRef.current) {
+      const timer = setTimeout(() => {
+        commentSectionRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 350)
+      return () => clearTimeout(timer)
+    }
+  }, [location.hash, review])
 
   if (isLoading) {
     return (
@@ -131,6 +146,7 @@ export default function ReviewDetailPage() {
       : '감상 중에서'
   const coverImageUrl = review.book.coverImageUrl
   const isMyReview = currentUserId != null && review.user.userId === currentUserId
+  const reviewHeading = isMyReview ? '나의 감상' : `${review.user.nickname}의 감상`
 
   const handleDeleteReview = async () => {
     setIsDeleting(true)
@@ -218,7 +234,7 @@ export default function ReviewDetailPage() {
 
         {/* Review Content */}
         <section className="px-5 py-3">
-          <h2 className="mb-4 text-2xl font-bold">나의 감상</h2>
+          <h2 className="mb-4 text-2xl font-bold">{reviewHeading}</h2>
           <div className="space-y-5 text-lg leading-8 text-foreground/90">
             {review.content.split('\n\n').map((paragraph, index) => (
               <p key={index}>{paragraph}</p>
@@ -281,7 +297,7 @@ export default function ReviewDetailPage() {
 
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[20px]">chat_bubble</span>
-                <span>{review.commentCount}</span>
+                <span>{displayCommentCount ?? review.commentCount}</span>
               </div>
             </div>
 
@@ -296,36 +312,13 @@ export default function ReviewDetailPage() {
           </div>
         </section>
 
-        {/* Comments
-            [MED-4 fix] 이전엔 commentTemplates ("독자 1: 문장 해석이 인상적이네요…")로 가짜 댓글을
-            진짜처럼 렌더해 사용자가 실제 댓글로 오해할 수 있었다. 댓글 API가 본 PR 범위 밖이므로
-            placeholder("댓글 기능은 곧 제공될 예정입니다.")로 교체하여 명시적 "준비 중" 상태를
-            표시. 댓글 API 연동은 후속 이슈에서 처리. */}
-        <section className="px-5 pb-6 pt-2">
-          <h3 className="mb-4 text-lg font-bold">댓글 {review.commentCount}개</h3>
-          <div className="rounded-xl bg-card px-4 py-5 text-center text-sm text-muted-foreground">
-            댓글 기능은 곧 제공될 예정입니다.
-          </div>
-        </section>
-
-        {/* Comment Input — [MED-4 fix] 위와 동일 사유로 입력창/게시 버튼 모두 disabled 처리 */}
-        <section className="border-t border-border px-5 py-4">
-          <div className="flex items-center gap-3 rounded-full border border-primary/10 bg-card px-4 py-3 opacity-60">
-            <input
-              type="text"
-              disabled
-              placeholder="댓글 기능 준비 중"
-              className="min-w-0 flex-1 cursor-not-allowed bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
-            />
-            <button
-              type="button"
-              disabled
-              className="cursor-not-allowed text-sm font-bold text-primary/40"
-            >
-              게시
-            </button>
-          </div>
-        </section>
+        <div ref={commentSectionRef}>
+          <CommentSection
+            reviewId={review.reviewId}
+            initialCommentCount={review.commentCount}
+            onCommentCountChange={setDisplayCommentCount}
+          />
+        </div>
       </main>
 
       <Dialog

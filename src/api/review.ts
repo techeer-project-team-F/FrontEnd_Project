@@ -8,6 +8,9 @@ export interface CreateReviewRequest {
   rating: number
   quote?: string
   isSpoiler?: boolean
+  reviewVisibility: ReviewVisibility
+  reviewStatus: ReviewStatus
+  tags?: string[]
 }
 
 export type UpdateReviewRequest = Omit<CreateReviewRequest, 'bookId'>
@@ -55,7 +58,7 @@ export type ReviewVisibility = 'PUBLIC' | 'PRIVATE'
  * 백엔드 `ReviewStatus` enum과 1:1 매칭. 임시저장/발행 상태 구분.
  * `findUserReviews`는 PUBLISHED만, `findMyReviews`는 `status` 쿼리 파라미터로 선택적 필터링.
  */
-export type ReviewBackendStatus = 'DRAFT' | 'PUBLISHED'
+export type ReviewStatus = 'DRAFT' | 'PUBLISHED'
 
 /**
  * 감상 목록 응답의 단일 아이템 — 백엔드 `ReviewSummaryResponse`와 1:1 매칭.
@@ -77,7 +80,7 @@ export interface ReviewListItem {
   quote: string | null
   isSpoiler: boolean
   reviewVisibility: ReviewVisibility
-  reviewStatus: ReviewBackendStatus
+  reviewStatus: ReviewStatus
   likeCount: number
   commentCount: number
   isLiked: boolean
@@ -88,7 +91,7 @@ export interface ReviewListItem {
 export interface GetMyReviewsParams {
   cursor?: number | null
   limit?: number
-  status?: ReviewBackendStatus
+  status?: ReviewStatus
   signal?: AbortSignal
 }
 
