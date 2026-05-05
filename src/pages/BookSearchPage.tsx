@@ -108,9 +108,9 @@ export default function BookSearchPage() {
   const [activeTab, setActiveTab] = useState<SearchType>(initialTab)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
 
-  // 도서 탭 (searchBooks 응답)
+  // 도서 탭 (searchBooks 응답) — 백엔드가 page 기반 페이지네이션으로 변경됨
   const [bookResults, setBookResults] = useState<BookSummary[]>([])
-  const [bookNextCursor, setBookNextCursor] = useState<number | null>(null)
+  const [bookNextPage, setBookNextPage] = useState<number | null>(null)
   const [bookHasNext, setBookHasNext] = useState(false)
   const [isBookLoading, setIsBookLoading] = useState(false)
   const [isBookLoadingMore, setIsBookLoadingMore] = useState(false)
@@ -151,7 +151,7 @@ export default function BookSearchPage() {
     bookHasNext,
     isBookLoading,
     isBookLoadingMore,
-    bookNextCursor,
+    bookNextPage,
     bookLoadMoreError,
     userHasNext,
     isUserLoading,
@@ -165,7 +165,7 @@ export default function BookSearchPage() {
     bookHasNext,
     isBookLoading,
     isBookLoadingMore,
-    bookNextCursor,
+    bookNextPage,
     bookLoadMoreError,
     userHasNext,
     isUserLoading,
@@ -237,7 +237,7 @@ export default function BookSearchPage() {
       // 다른 탭이거나 검색어 비어있으면 도서 결과 초기화
       if (!trimmedQuery) {
         setBookResults([])
-        setBookNextCursor(null)
+        setBookNextPage(null)
         setBookHasNext(false)
         setBookErrorMessage(null)
       }
@@ -249,7 +249,7 @@ export default function BookSearchPage() {
     // stale UI 방지 — setTimeout 들어가기 전에 결과/cursor/에러 초기화하여
     // 사용자가 "검색 중..." placeholder만 보도록 한다.
     setBookResults([])
-    setBookNextCursor(null)
+    setBookNextPage(null)
     setBookHasNext(false)
     setBookErrorMessage(null)
     setIsBookLoading(true)
@@ -261,20 +261,20 @@ export default function BookSearchPage() {
           const book = await getBookByIsbn(trimmedQuery, controller.signal)
           if (controller.signal.aborted) return
           setBookResults([isbnResultToSummary(book)])
-          setBookNextCursor(null)
+          setBookNextPage(null)
           setBookHasNext(false)
         } else {
-          const response = await searchBooks(trimmedQuery, 20, null, controller.signal)
+          const response = await searchBooks(trimmedQuery, 20, 1, controller.signal)
           if (controller.signal.aborted) return
           setBookResults(response.content)
-          setBookNextCursor(response.nextCursor)
+          setBookNextPage(response.hasNext ? 2 : null)
           setBookHasNext(response.hasNext)
         }
       } catch (error) {
         if (axios.isCancel(error) || controller.signal.aborted) return
         setBookErrorMessage(error instanceof Error ? error.message : '검색에 실패했습니다.')
         setBookResults([])
-        setBookNextCursor(null)
+        setBookNextPage(null)
         setBookHasNext(false)
       } finally {
         if (!controller.signal.aborted) setIsBookLoading(false)
@@ -406,9 +406,10 @@ export default function BookSearchPage() {
     // 진행되지 않도록 진입부 가드. observer disconnect와 별개의 안전망.
     if (s.activeTab !== 'book') return
     if (s.isBookLoadingMore || s.isBookLoading || !s.bookHasNext) return
+    if (!s.bookNextPage) return
     if (isValidIsbn13(s.trimmedQuery)) return // ISBN 모드는 단일 결과
     const requestedQuery = s.trimmedQuery
-    const requestedCursor = s.bookNextCursor
+    const requestedPage = s.bookNextPage
 
     bookMoreControllerRef.current?.abort()
     const controller = new AbortController()
@@ -417,7 +418,7 @@ export default function BookSearchPage() {
     setIsBookLoadingMore(true)
     setBookLoadMoreError(null)
     try {
-      const response = await searchBooks(requestedQuery, 20, requestedCursor, controller.signal)
+      const response = await searchBooks(requestedQuery, 20, requestedPage, controller.signal)
       if (controller.signal.aborted) return
       if (stateRef.current.trimmedQuery !== requestedQuery) return
       setBookResults(prev => {
@@ -427,7 +428,7 @@ export default function BookSearchPage() {
           setBookHasNext(false)
           return prev
         }
-        setBookNextCursor(response.nextCursor)
+        setBookNextPage(response.hasNext && requestedPage != null ? requestedPage + 1 : null)
         setBookHasNext(response.hasNext)
         return [...prev, ...deduped]
       })
