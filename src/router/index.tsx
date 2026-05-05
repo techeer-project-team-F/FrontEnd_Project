@@ -17,6 +17,7 @@ import PasswordResetRequestPage from '@/pages/PasswordResetRequestPage'
 import PasswordResetPage from '@/pages/PasswordResetPage'
 import EmailVerificationPage from '@/pages/EmailVerificationPage'
 import PasswordChangePage from '@/pages/PasswordChangePage'
+import BlockedUsersPage from '@/pages/BlockedUsersPage'
 import WithdrawPage from '@/pages/WithdrawPage'
 import EditProfilePage from '@/pages/EditProfilePage'
 import UserProfilePage from '@/pages/UserProfilePage'
@@ -191,6 +192,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <EditProfilePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/settings/blocked',
+    element: (
+      <ProtectedRoute>
+        <BlockedUsersPage />
       </ProtectedRoute>
     ),
   },

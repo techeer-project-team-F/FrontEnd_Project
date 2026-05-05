@@ -236,6 +236,14 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* Block Management */}
+        <section className="px-5 pt-8">
+          <h2 className="mb-3 text-lg font-bold text-primary/80">차단 관리</h2>
+          <div className="overflow-hidden rounded-[28px] bg-card shadow-sm">
+            <LinkRow title="차단한 사용자" onClick={() => navigate('/settings/blocked')} noBorder />
+          </div>
+        </section>
+
         {/* Account */}
         <section className="px-5 pt-8">
           <h2 className="mb-3 text-lg font-bold text-primary/80">계정 관리</h2>
