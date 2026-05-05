@@ -1,5 +1,6 @@
 import apiClient from './client'
 import { ApiResponse, normalizeAxiosError } from './_helpers'
+import type { Genre } from './genre'
 
 export type LibraryVisibility = 'PUBLIC' | 'PRIVATE'
 
@@ -15,6 +16,7 @@ export interface MyProfile {
   followerCount: number
   followingCount: number
   reviewCount: number
+  genres: Genre[]
 }
 
 export async function getMyProfile(signal?: AbortSignal): Promise<MyProfile> {

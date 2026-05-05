@@ -236,6 +236,14 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* Personalization */}
+        <section className="px-5 pt-8">
+          <h2 className="mb-3 text-lg font-bold text-primary/80">개인화</h2>
+          <div className="overflow-hidden rounded-[28px] bg-card shadow-sm">
+            <LinkRow title="관심 장르 변경" onClick={() => navigate('/settings/genres')} noBorder />
+          </div>
+        </section>
+
         {/* Block Management */}
         <section className="px-5 pt-8">
           <h2 className="mb-3 text-lg font-bold text-primary/80">차단 관리</h2>
