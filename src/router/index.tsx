@@ -19,6 +19,7 @@ import EmailVerificationPage from '@/pages/EmailVerificationPage'
 import PasswordChangePage from '@/pages/PasswordChangePage'
 import BlockedUsersPage from '@/pages/BlockedUsersPage'
 import WithdrawPage from '@/pages/WithdrawPage'
+import GenreSelectionPage from '@/pages/GenreSelectionPage'
 import EditProfilePage from '@/pages/EditProfilePage'
 import UserProfilePage from '@/pages/UserProfilePage'
 import LibraryBookDetailPage from '@/pages/LibraryBookDetailPage'
@@ -66,6 +67,14 @@ export const router = createBrowserRouter([
   {
     path: '/verify-email',
     element: <EmailVerificationPage />,
+  },
+  {
+    path: '/onboarding/genre',
+    element: (
+      <ProtectedRoute>
+        <GenreSelectionPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/search',
