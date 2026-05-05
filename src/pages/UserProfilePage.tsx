@@ -4,6 +4,7 @@ import axios from 'axios'
 import AppHeader from '@/components/layout/AppHeader'
 import { getUserProfile, type UserProfile } from '@/api/member'
 import { followUser, unfollowUser } from '@/api/follow'
+import { blockUser } from '@/api/block'
 import { getUserReviews, REVIEW_PAGE_SIZE, type ReviewListItem } from '@/api/review'
 import { formatRelativeTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
@@ -32,6 +33,8 @@ export default function UserProfilePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isFollowProcessing, setIsFollowProcessing] = useState(false)
   const [followError, setFollowError] = useState<string | null>(null)
+  const [isBlockProcessing, setIsBlockProcessing] = useState(false)
+  const [blockError, setBlockError] = useState<string | null>(null)
   const [reviews, setReviews] = useState<ReviewListItem[]>([])
   const [reviewNextCursor, setReviewNextCursor] = useState<number | null>(null)
   const [hasMoreReviews, setHasMoreReviews] = useState(false)
@@ -166,6 +169,30 @@ export default function UserProfilePage() {
         </main>
       </div>
     )
+  }
+
+  /**
+   * 사용자 차단. confirm 후 API 호출 → 성공 시 이전 페이지로 이동.
+   * 백엔드에서 양방향 팔로우 해제 + 피드 삭제가 함께 처리됨.
+   * 이미 차단된 사용자에게 다시 호출하면 백엔드가 409를 반환하므로 에러 메시지로 안내.
+   */
+  const handleBlock = async () => {
+    if (isBlockProcessing) return
+    if (
+      !window.confirm(
+        `${profile.nickname}님을 차단하시겠습니까?\n차단하면 서로의 팔로우가 해제되고, 피드에서 감상이 숨겨집니다.`
+      )
+    )
+      return
+    setIsBlockProcessing(true)
+    setBlockError(null)
+    try {
+      await blockUser(profile.userId)
+      navigate(-1)
+    } catch (error) {
+      setBlockError(error instanceof Error ? error.message : '차단에 실패했습니다.')
+      setIsBlockProcessing(false)
+    }
   }
 
   /**
@@ -333,6 +360,23 @@ export default function UserProfilePage() {
               className="rounded-lg bg-destructive/10 px-4 py-2 text-center text-sm text-destructive"
             >
               {followError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleBlock}
+            disabled={isBlockProcessing}
+            className="w-full rounded-xl border border-destructive/20 bg-card py-3 text-base font-semibold text-destructive transition-colors hover:bg-destructive/5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isBlockProcessing ? '처리 중...' : '차단'}
+          </button>
+          {blockError && (
+            <p
+              role="alert"
+              aria-atomic="true"
+              className="rounded-lg bg-destructive/10 px-4 py-2 text-center text-sm text-destructive"
+            >
+              {blockError}
             </p>
           )}
         </section>
