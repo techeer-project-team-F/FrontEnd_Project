@@ -46,13 +46,11 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0)
   const navigate = useNavigate()
   const onboardingCompleted = useAuthStore(state => state.user?.onboardingCompleted)
-  const completeOnboardingStore = useAuthStore(state => state.completeOnboarding)
 
   if (onboardingCompleted) return <Navigate to="/" replace />
 
   const completeOnboarding = () => {
-    completeOnboardingStore()
-    navigate('/', { replace: true })
+    navigate('/onboarding/genre', { replace: true })
   }
 
   const handleNext = () => {
