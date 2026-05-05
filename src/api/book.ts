@@ -79,10 +79,15 @@ export async function getBookByIsbn(isbn13: string, signal?: AbortSignal): Promi
   }
 }
 
+/**
+ * 도서 검색. 백엔드가 알라딘 API를 page 번호 기반으로 호출하므로
+ * 프론트도 cursor 대신 page를 전달한다. 응답의 `nextCursor`(bookId)는
+ * DB 커서용으로 남아있지만 검색 페이지네이션에는 page 증가만 사용.
+ */
 export async function searchBooks(
   query: string,
   limit = 20,
-  cursor?: number | null,
+  page = 1,
   signal?: AbortSignal
 ): Promise<BookSearchListResponse> {
   try {
@@ -92,7 +97,7 @@ export async function searchBooks(
         params: {
           query,
           limit,
-          ...(cursor != null ? { cursor } : {}),
+          page,
         },
         signal,
       }
@@ -133,6 +138,7 @@ export interface BookReviewListResponse {
   content: BookReviewItem[]
   nextCursor: number | null
   nextCursorRating: number | null
+  nextCursorLike: number | null
   hasNext: boolean
   size: number
 }
@@ -142,9 +148,10 @@ export type BookReviewSort = 'latest' | 'popular' | 'rating_high' | 'rating_low'
 /**
  * 도서별 감상 목록을 조회한다.
  *
- * 정렬 중 `rating_high`/`rating_low`는 복합 커서(`cursorRating` + `cursor`)를 사용.
- * `latest`/`popular`는 단일 `cursor`만 사용.
- * `isLiked`는 백엔드에서 실제 연동됨 (BookService.getBookReviews에서 findLikedReviewIds 사용).
+ * 정렬별 복합 커서 정책:
+ * - `latest`: 단일 `cursor`(reviewId)
+ * - `popular`: `cursorLike`(likeCount) + `cursor`(reviewId)
+ * - `rating_high`/`rating_low`: `cursorRating`(rating) + `cursor`(reviewId)
  */
 export async function getBookReviews(
   bookId: number,
@@ -152,11 +159,12 @@ export async function getBookReviews(
     sort?: BookReviewSort
     cursor?: number | null
     cursorRating?: number | null
+    cursorLike?: number | null
     limit?: number
     signal?: AbortSignal
   }
 ): Promise<BookReviewListResponse> {
-  const { sort = 'latest', cursor, cursorRating, limit = 20, signal } = options ?? {}
+  const { sort = 'latest', cursor, cursorRating, cursorLike, limit = 20, signal } = options ?? {}
   try {
     const { data } = await apiClient.get<ApiResponse<BookReviewListResponse>>(
       `/api/v1/books/${bookId}/reviews`,
@@ -166,6 +174,7 @@ export async function getBookReviews(
           limit,
           ...(cursor != null ? { cursor } : {}),
           ...(cursorRating != null ? { cursorRating } : {}),
+          ...(cursorLike != null ? { cursorLike } : {}),
         },
         signal,
       }

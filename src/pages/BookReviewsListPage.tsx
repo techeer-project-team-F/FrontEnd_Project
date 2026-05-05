@@ -15,9 +15,9 @@ import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
 import StarRating from '@/components/common/StarRating'
 
-const sortOptions: { label: string; value: BookReviewSort; disabled?: boolean }[] = [
+const sortOptions: { label: string; value: BookReviewSort }[] = [
   { label: '최신순', value: 'latest' },
-  { label: '인기순 (준비 중)', value: 'popular', disabled: true },
+  { label: '인기순', value: 'popular' },
   { label: '별점 높은순', value: 'rating_high' },
   { label: '별점 낮은순', value: 'rating_low' },
 ]
@@ -38,6 +38,7 @@ export default function BookReviewsListPage() {
   const [reviews, setReviews] = useState<BookReviewItem[]>([])
   const [nextCursor, setNextCursor] = useState<number | null>(null)
   const [nextCursorRating, setNextCursorRating] = useState<number | null>(null)
+  const [nextCursorLike, setNextCursorLike] = useState<number | null>(null)
   const [hasNext, setHasNext] = useState(false)
   const [activeSort, setActiveSort] = useState<BookReviewSort>('latest')
   const [isLoading, setIsLoading] = useState(true)
@@ -55,6 +56,7 @@ export default function BookReviewsListPage() {
     isLoadingMore,
     nextCursor,
     nextCursorRating,
+    nextCursorLike,
     loadMoreError,
     activeSort,
   })
@@ -64,6 +66,7 @@ export default function BookReviewsListPage() {
     isLoadingMore,
     nextCursor,
     nextCursorRating,
+    nextCursorLike,
     loadMoreError,
     activeSort,
   }
@@ -102,6 +105,7 @@ export default function BookReviewsListPage() {
     setReviews([])
     setNextCursor(null)
     setNextCursorRating(null)
+    setNextCursorLike(null)
     setHasNext(false)
     setIsLoadingMore(false)
     setLoadMoreError(null)
@@ -117,6 +121,7 @@ export default function BookReviewsListPage() {
         setReviews(reviewResult.content)
         setNextCursor(reviewResult.nextCursor)
         setNextCursorRating(reviewResult.nextCursorRating)
+        setNextCursorLike(reviewResult.nextCursorLike)
         setHasNext(reviewResult.hasNext)
       } catch (error) {
         if (axios.isCancel(error) || controller.signal.aborted) return
@@ -147,6 +152,7 @@ export default function BookReviewsListPage() {
         sort: s.activeSort,
         cursor: s.nextCursor,
         cursorRating: s.nextCursorRating,
+        cursorLike: s.nextCursorLike,
         limit: 20,
         signal: controller.signal,
       })
@@ -160,6 +166,7 @@ export default function BookReviewsListPage() {
       if (hasNewItems) {
         setNextCursor(response.nextCursor)
         setNextCursorRating(response.nextCursorRating)
+        setNextCursorLike(response.nextCursorLike)
       }
       setHasNext(hasNewItems && response.hasNext)
     } catch (error) {
@@ -308,15 +315,12 @@ export default function BookReviewsListPage() {
               <button
                 type="button"
                 key={option.value}
-                onClick={() => !option.disabled && setActiveSort(option.value)}
-                disabled={option.disabled}
+                onClick={() => setActiveSort(option.value)}
                 className={cn(
                   'whitespace-nowrap rounded-full px-5 py-2 text-sm font-semibold transition-colors',
-                  option.disabled
-                    ? 'border border-primary/10 bg-muted text-muted-foreground opacity-50'
-                    : activeSort === option.value
-                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                      : 'border border-primary/10 bg-primary/5 text-primary'
+                  activeSort === option.value
+                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                    : 'border border-primary/10 bg-primary/5 text-primary'
                 )}
               >
                 {option.label}
