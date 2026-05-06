@@ -4,32 +4,24 @@ import axios from 'axios'
 import BottomNav from '@/components/layout/BottomNav'
 import { getMyProfile, type MyProfile } from '@/api/member'
 import { getMyReviews, REVIEW_PAGE_SIZE, type ReviewListItem } from '@/api/review'
+import { getWisdomTower, type WisdomTowerResponse } from '@/api/library'
 import { formatRelativeTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
-// TODO(M1 후속): Library 통계 API 연동 시 교체 (Wisdom Tower, 연간 독서 스택)
-const yearlyBooks = [
-  { title: '어린 왕자', width: 'w-[92%]', bg: '#2B2626', text: 'text-white' },
-  { title: '모비 딕', width: 'w-[88%]', bg: '#314244', text: 'text-white' },
-  { title: '이방인', width: 'w-[90%]', bg: '#4B2E26', text: 'text-white' },
-  { title: '위대한 개츠비', width: 'w-[86%]', bg: '#C2A065', text: 'text-white' },
-  { title: '위대한 개츠비', width: 'w-[91%]', bg: '#6C4B3F', text: 'text-white' },
-  { title: '호밀밭의 파수꾼', width: 'w-[84%]', bg: '#9B8378', text: 'text-white' },
-  { title: '인간 실격', width: 'w-[89%]', bg: '#CBBDB8', text: 'text-foreground' },
-  { title: '데미안', width: 'w-[82%]', bg: '#E2DBD8', text: 'text-primary' },
+const TOWER_PALETTE = [
+  { bg: '#2B2626', text: 'text-white' },
+  { bg: '#314244', text: 'text-white' },
+  { bg: '#4B2E26', text: 'text-white' },
+  { bg: '#C2A065', text: 'text-white' },
+  { bg: '#6C4B3F', text: 'text-white' },
+  { bg: '#9B8378', text: 'text-white' },
+  { bg: '#CBBDB8', text: 'text-foreground' },
+  { bg: '#E2DBD8', text: 'text-primary' },
 ]
 
-// TODO(M1 후속): 통계 전용 API 연동 시 교체 (월별 독서량)
-const monthlyStats = [
-  { month: '1월', value: 2 },
-  { month: '2월', value: 3 },
-  { month: '3월', value: 3 },
-  { month: '4월', value: 5 },
-  { month: '5월', value: 4 },
-  { month: '6월', value: 6 },
-]
+const TOWER_WIDTHS = [92, 88, 90, 86, 91, 84, 89, 82, 87, 93, 85, 90, 88, 86, 91]
 
-// TODO(M1 후속): 통계 전용 API 연동 시 교체 (카테고리 분포)
+// 카테고리 분포 — 백엔드 API 미구현으로 placeholder 유지
 const categoryStats = [
   { label: '소설 60%', color: '#B9935A' },
   { label: '에세이 25%', color: '#D3BE9E' },
@@ -39,23 +31,17 @@ const categoryStats = [
 /**
  * 본인 프로필 페이지.
  *
- * 두 개의 독립 fetch effect로 구성:
- * 1. `getMyProfile` — 상단 프로필(닉네임/bio/팔로워·팔로잉/감상수)을 채우고 `authStore.setAuth`로
- *    persist 상태를 최신화. `useAuthStore.getState()`로 읽는 이유는 본 컴포넌트가 store를
- *    selector로 구독하지 않게 하여 `setAuth` 호출이 리렌더 → effect 무한 루프를 일으키지 않도록 함.
- * 2. `getMyReviews({ status: 'PUBLISHED' })` — 공개 감상 타임라인. 백엔드 `findMyReviews`
- *    쿼리는 가시성(`reviewVisibility`) 필터가 없어 PUBLIC/PRIVATE이 모두 오므로,
- *    DRAFT 임시저장은 `status='PUBLISHED'`로 백엔드에서 제외 + PUBLIC 필터는 클라이언트
- *    표시단(useMemo `visibleReviews`)에서 적용. 후속 백엔드 이슈로 쿼리에 PUBLIC 필터 추가 검토.
+ * 세 개의 독립 데이터 소스:
+ * 1. `getMyProfile` — 프로필 정보 + authStore 동기화
+ * 2. `getWisdomTower` — 완독 도서 스택(지혜의 탑) + 통계 카드 + 월별 독서량 파생
+ * 3. `getMyReviews` — 공개 감상 타임라인
  *
- * Wisdom Tower / 월별·카테고리 통계는 Library/통계 전용 API 미구현으로 mock 유지(TODO 표시).
- *
- * @remarks 페이징은 옵션 A — 응답이 배열이라 `items.length === REVIEW_PAGE_SIZE`로 hasNext
- * 추론. 마지막 페이지에서 정확히 PAGE_SIZE만 매칭되면 한 번 false-positive 후 빈 배열로 자연 종료.
+ * 카테고리 분포 통계는 백엔드 API 미구현으로 mock placeholder 유지.
  */
 export default function MyProfilePage() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState<MyProfile | null>(null)
+  const [wisdomTower, setWisdomTower] = useState<WisdomTowerResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [reviews, setReviews] = useState<ReviewListItem[]>([])
@@ -65,22 +51,47 @@ export default function MyProfilePage() {
   const [isReviewsLoadingMore, setIsReviewsLoadingMore] = useState(false)
   const [reviewsErrorMessage, setReviewsErrorMessage] = useState<string | null>(null)
 
-  /**
-   * "더 보기" 클릭 시 만들어지는 abort controller. 사용자가 페이지를 이탈하거나 빠르게
-   * 재클릭하면 진행 중인 요청을 취소하여 unmount 후 setState 경고와 stale 응답 덮어쓰기를 방지.
-   */
   const loadMoreControllerRef = useRef<AbortController | null>(null)
 
-  const maxStatValue = Math.max(...monthlyStats.map(item => item.value))
-
-  /**
-   * 백엔드 `findMyReviews`는 `reviewVisibility` 필터를 적용하지 않아 본인의 PRIVATE 감상도
-   * 응답에 포함된다. "공개 감상 타임라인" 섹션의 의미상 클라이언트 표시단에서 PUBLIC만 노출.
-   * 후속 백엔드 이슈로 쿼리 필터 추가 후 본 메모이제이션 제거 가능.
-   */
   const visibleReviews = useMemo(
     () => reviews.filter(r => r.reviewVisibility === 'PUBLIC'),
     [reviews]
+  )
+
+  const now = useMemo(() => new Date(), [])
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth()
+
+  const thisYearBooks = useMemo(
+    () =>
+      wisdomTower?.books.filter(
+        b => b.finishedAt && new Date(b.finishedAt).getFullYear() === currentYear
+      ).length ?? 0,
+    [wisdomTower, currentYear]
+  )
+
+  /**
+   * wisdom tower books의 finishedAt을 올해 월별로 그룹핑.
+   * 1월~현재 월까지만 표시하여 미래 월의 빈 바를 방지.
+   * `now`에서 파생된 `currentYear`/`currentMonth`를 사용하여 단일 시점 기준 보장.
+   */
+  const monthlyStats = useMemo(() => {
+    const counts = new Array(currentMonth + 1).fill(0) as number[]
+    if (wisdomTower?.books) {
+      for (const book of wisdomTower.books) {
+        if (!book.finishedAt) continue
+        const date = new Date(book.finishedAt)
+        if (date.getFullYear() !== currentYear) continue
+        const month = date.getMonth()
+        if (month <= currentMonth) counts[month]++
+      }
+    }
+    return counts.map((value, i) => ({ month: `${i + 1}월`, value }))
+  }, [wisdomTower, currentYear, currentMonth])
+
+  const maxStatValue = useMemo(
+    () => Math.max(...monthlyStats.map(item => item.value), 1),
+    [monthlyStats]
   )
 
   useEffect(() => {
@@ -89,12 +100,14 @@ export default function MyProfilePage() {
     setErrorMessage(null)
     ;(async () => {
       try {
-        const result = await getMyProfile(controller.signal)
+        const [result, tower] = await Promise.all([
+          getMyProfile(controller.signal),
+          getWisdomTower(controller.signal).catch(() => null),
+        ])
         if (controller.signal.aborted) return
         setProfile(result)
+        if (tower) setWisdomTower(tower)
 
-        // getState()로 읽는 이유: 이 컴포넌트가 authStore를 구독하지 않게 하여
-        // setAuth 호출이 리렌더 → useEffect 재실행 무한 루프를 방지한다.
         const state = useAuthStore.getState()
         if (state.user && state.accessToken) {
           state.setAuth(
@@ -128,8 +141,6 @@ export default function MyProfilePage() {
     setReviewsErrorMessage(null)
     ;(async () => {
       try {
-        // status='PUBLISHED'로 임시저장(DRAFT) 제외. 가시성(PUBLIC) 필터는 백엔드 미적용이라
-        // 클라이언트 visibleReviews 메모이제이션에서 처리.
         const response = await getMyReviews({
           cursor: null,
           status: 'PUBLISHED',
@@ -137,7 +148,6 @@ export default function MyProfilePage() {
         })
         if (controller.signal.aborted) return
         setReviews(response)
-        // 옵션 A: 마지막 아이템의 reviewId를 다음 cursor로, items.length === PAGE_SIZE이면 hasNext.
         setReviewNextCursor(response.length > 0 ? response[response.length - 1].reviewId : null)
         setHasMoreReviews(response.length === REVIEW_PAGE_SIZE)
       } catch (error) {
@@ -152,16 +162,10 @@ export default function MyProfilePage() {
 
     return () => {
       controller.abort()
-      // 더 보기로 진행 중이던 요청도 함께 취소 — 페이지 이탈 시 unmount 후 setState 방지.
       loadMoreControllerRef.current?.abort()
     }
   }, [])
 
-  /**
-   * "더 보기" 핸들러. 진행 중인 이전 요청은 abort 후 새 요청으로 교체하고, 응답에는 cancel
-   * 가드를 적용해 stale 응답이 새 응답을 덮어쓰지 않도록 한다. 빈 응답이 도착하면
-   * `hasMoreReviews=false`로 종료(옵션 A의 false-positive 자연 종료 정책).
-   */
   const handleLoadMoreReviews = async () => {
     if (isReviewsLoadingMore || !hasMoreReviews) return
 
@@ -246,6 +250,8 @@ export default function MyProfilePage() {
       </div>
     )
   }
+
+  const towerBooks = wisdomTower?.books ?? []
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -338,16 +344,16 @@ export default function MyProfilePage() {
         {/* Stats */}
         <section className="px-6 pt-8">
           <div className="grid grid-cols-3 gap-3">
-            {/* TODO(M1 후속): Library 통계 API 연동 시 실제 데이터로 교체 */}
             <div className="rounded-[24px] bg-card px-3 py-5 text-center shadow-sm">
               <p className="text-xs font-semibold text-primary/60">올해 읽은 책</p>
-              <p className="mt-2 text-3xl font-bold text-primary">8권</p>
+              <p className="mt-2 text-3xl font-bold text-primary">{thisYearBooks}권</p>
             </div>
 
-            {/* TODO(M1 후속): Library 통계 API 연동 시 실제 데이터로 교체 */}
             <div className="rounded-[24px] bg-card px-3 py-5 text-center shadow-sm">
               <p className="text-xs font-semibold text-primary/60">총 완독</p>
-              <p className="mt-2 text-3xl font-bold text-primary">47권</p>
+              <p className="mt-2 text-3xl font-bold text-primary">
+                {wisdomTower?.totalCount ?? 0}권
+              </p>
             </div>
 
             <div className="rounded-[24px] bg-card px-3 py-5 text-center shadow-sm">
@@ -357,71 +363,87 @@ export default function MyProfilePage() {
           </div>
         </section>
 
-        {/* Yearly Reading Stack — TODO(M1 후속): Library API 연동 필요 */}
+        {/* Wisdom Tower */}
         <section className="px-6 pt-10">
           <div className="mb-6 text-center">
             <h2 className="text-2xl font-bold text-primary/90">Your Wisdom Tower</h2>
           </div>
 
-          <div className="flex flex-col-reverse items-center">
-            {yearlyBooks.map((book, index) => (
-              <div
-                key={`${book.title}-${index}`}
-                className={`relative ${book.width} h-[58px]`}
-                style={{ marginTop: index === 0 ? 0 : '-2px' }}
-              >
-                <div
-                  className={`flex h-full w-full items-center justify-center rounded-[16px] text-lg font-bold shadow-md ${book.text}`}
-                  style={{ backgroundColor: book.bg }}
-                >
-                  {book.title}
-                </div>
-              </div>
-            ))}
-          </div>
+          {towerBooks.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-[24px] bg-card py-10 shadow-sm">
+              <span className="material-symbols-outlined text-5xl text-muted-foreground/30">
+                auto_stories
+              </span>
+              <p className="text-sm text-muted-foreground">아직 완독한 책이 없습니다</p>
+              <p className="text-xs text-muted-foreground/60">책을 다 읽으면 여기에 쌓여요</p>
+            </div>
+          ) : (
+            <div className="flex flex-col-reverse items-center">
+              {towerBooks.map((book, index) => {
+                const palette = TOWER_PALETTE[index % TOWER_PALETTE.length]
+                const width = TOWER_WIDTHS[index % TOWER_WIDTHS.length]
+                return (
+                  <div
+                    key={book.libraryBookId}
+                    className="relative h-[58px]"
+                    style={{
+                      width: `${width}%`,
+                      marginTop: index === 0 ? 0 : '-2px',
+                    }}
+                  >
+                    <div
+                      className={`flex h-full w-full items-center justify-center rounded-[16px] text-lg font-bold shadow-md ${palette.text}`}
+                      style={{ backgroundColor: palette.bg }}
+                    >
+                      <span className="truncate px-4">{book.title}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </section>
 
-        {/* Reading Statistics — TODO(M1 후속): 통계 전용 API 연동 필요 */}
+        {/* Reading Statistics */}
         <section className="px-6 pt-10">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-[28px] font-bold tracking-tight text-foreground">나의 독서 통계</h2>
-            <button
-              type="button"
-              className="flex items-center justify-center rounded-full p-1 text-primary/50 transition-colors hover:bg-primary/10"
-              aria-label="독서 통계 상세 보기"
-            >
-              <span className="material-symbols-outlined">chevron_right</span>
-            </button>
           </div>
 
           <div className="rounded-[28px] bg-card px-5 pb-5 pt-5 shadow-sm">
-            <div className="h-[176px] pt-6">
-              <div className="flex h-[128px] items-end justify-between gap-3 border-b border-border/70 px-2 pb-3">
-                {monthlyStats.map(item => {
-                  const barHeight = `${(item.value / maxStatValue) * 100}%`
-
-                  return (
-                    <div
-                      key={item.month}
-                      className="flex flex-1 flex-col items-center justify-end gap-3"
-                    >
-                      <div className="flex h-[96px] items-end">
-                        <div
-                          className="relative flex w-7 items-start justify-center rounded-full bg-primary/70"
-                          style={{ height: barHeight, minHeight: '18px' }}
-                        >
-                          <span className="absolute bottom-full mb-2 text-sm font-semibold text-primary/55">
-                            {item.value}
-                          </span>
+            {monthlyStats.length > 0 ? (
+              <div className="h-[176px] pt-6">
+                <div className="flex h-[128px] items-end justify-between gap-3 border-b border-border/70 px-2 pb-3">
+                  {monthlyStats.map(item => {
+                    const barHeight = `${(item.value / maxStatValue) * 100}%`
+                    return (
+                      <div
+                        key={item.month}
+                        className="flex flex-1 flex-col items-center justify-end gap-3"
+                      >
+                        <div className="flex h-[96px] items-end">
+                          <div
+                            className="relative flex w-7 items-start justify-center rounded-full bg-primary/70"
+                            style={{ height: barHeight, minHeight: '18px' }}
+                          >
+                            <span className="absolute bottom-full mb-2 text-sm font-semibold text-primary/55">
+                              {item.value}
+                            </span>
+                          </div>
                         </div>
+                        <span className="text-xs font-medium text-primary/45">{item.month}</span>
                       </div>
-                      <span className="text-xs font-medium text-primary/45">{item.month}</span>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center justify-center py-10">
+                <p className="text-sm text-muted-foreground">올해 독서 기록이 없습니다</p>
+              </div>
+            )}
 
+            {/* 카테고리 분포 — 백엔드 API 미구현, placeholder 유지 */}
             <div className="mt-3 flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
               {categoryStats.map(item => (
                 <div key={item.label} className="flex items-center gap-2">
@@ -432,6 +454,7 @@ export default function MyProfilePage() {
                   <span className="text-sm font-medium text-primary/65">{item.label}</span>
                 </div>
               ))}
+              <span className="text-xs text-muted-foreground/50">(준비 중)</span>
             </div>
           </div>
         </section>

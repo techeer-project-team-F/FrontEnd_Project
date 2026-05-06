@@ -1,5 +1,5 @@
 import apiClient from './client'
-import { ApiResponse, normalizeAxiosError } from './_helpers'
+import { ApiResponse, normalizeAxiosError, parseApiResponse } from './_helpers'
 import type { BackendReadingStatus } from './book'
 import type { ReadingStatus } from '@/types'
 
@@ -211,6 +211,34 @@ export async function removeLibraryBook(libraryBookId: number): Promise<void> {
 
 // AbortSignal 미지원 유지: POST는 서버 상태를 변경하므로 클라이언트에서 중단해도 서버 반영 여부가 불확실하고
 // (실제로 DB 쓰기가 이미 커밋되었을 수 있음), 취소의 실효성이 낮다. 대신 호출측에서 이중 클릭 방지(disabled)로 중복 호출을 막는다.
+export interface WisdomTowerBook {
+  libraryBookId: number
+  bookId: number
+  title: string
+  finishedAt: string | null
+}
+
+export interface WisdomTowerResponse {
+  totalCount: number
+  books: WisdomTowerBook[]
+}
+
+/**
+ * 지혜의 탑 조회. 완독(FINISHED) 도서를 스택 형태로 시각화하기 위한 데이터.
+ * `finishedAt`으로 월별 독서량 통계도 파생 가능.
+ */
+export async function getWisdomTower(signal?: AbortSignal): Promise<WisdomTowerResponse> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<WisdomTowerResponse>>(
+      '/api/v1/library/me/wisdom-tower',
+      { signal }
+    )
+    return parseApiResponse(data, '지혜의 탑 응답이 올바르지 않습니다.')
+  } catch (error) {
+    throw normalizeAxiosError(error, '지혜의 탑을 불러오지 못했습니다.')
+  }
+}
+
 export async function addLibraryBook(
   bookId: number,
   status: ReadingStatus
