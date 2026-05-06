@@ -205,6 +205,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/settings/genres',
+    element: (
+      <ProtectedRoute>
+        <GenreSelectionPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/settings/blocked',
     element: (
       <ProtectedRoute>

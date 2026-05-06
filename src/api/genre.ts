@@ -43,6 +43,24 @@ export async function getGenres(signal?: AbortSignal): Promise<Genre[]> {
 }
 
 /**
+ * 관심 장르 수정. 기존 장르를 전체 교체한다.
+ * 온보딩 이후 설정에서 장르를 변경할 때 사용.
+ */
+export async function updateMyGenres(genreIds: number[], signal?: AbortSignal): Promise<Genre[]> {
+  try {
+    const { data } = await apiClient.put<ApiResponse<{ genres: Genre[] }>>(
+      '/api/v1/users/me/genres',
+      { genreIds },
+      { signal }
+    )
+    const result = parseApiResponse(data, '장르 수정 응답이 올바르지 않습니다.')
+    return result.genres
+  } catch (error) {
+    throw normalizeAxiosError(error, '장르 수정에 실패했습니다.')
+  }
+}
+
+/**
  * 온보딩 완료. nickname과 genreIds를 백엔드에 전달하여 프로필+장르를 한 번에 설정.
  * 성공 시 백엔드가 `member.onboardingCompleted = true`로 갱신.
  */
