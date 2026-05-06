@@ -1,5 +1,5 @@
 import apiClient from './client'
-import { ApiResponse, normalizeAxiosError } from './_helpers'
+import { ApiResponse, normalizeAxiosError, parseApiResponse } from './_helpers'
 import type { BackendReadingStatus } from './book'
 import type { ReadingStatus } from '@/types'
 
@@ -206,6 +206,34 @@ export async function removeLibraryBook(libraryBookId: number): Promise<void> {
       error,
       '서재에서 도서를 제거하지 못했습니다. 잠시 후 다시 시도해주세요.'
     )
+  }
+}
+
+export interface WisdomTowerBook {
+  libraryBookId: number
+  bookId: number
+  title: string
+  finishedAt: string | null
+}
+
+export interface WisdomTowerResponse {
+  totalCount: number
+  books: WisdomTowerBook[]
+}
+
+/**
+ * 지혜의 탑 조회. 완독(FINISHED) 도서를 스택 형태로 시각화하기 위한 데이터.
+ * `finishedAt`으로 월별 독서량 통계도 파생 가능.
+ */
+export async function getWisdomTower(signal?: AbortSignal): Promise<WisdomTowerResponse> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<WisdomTowerResponse>>(
+      '/api/v1/library/me/wisdom-tower',
+      { signal }
+    )
+    return parseApiResponse(data, '지혜의 탑 응답이 올바르지 않습니다.')
+  } catch (error) {
+    throw normalizeAxiosError(error, '지혜의 탑을 불러오지 못했습니다.')
   }
 }
 
