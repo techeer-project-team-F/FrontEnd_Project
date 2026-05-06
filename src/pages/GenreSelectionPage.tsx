@@ -79,11 +79,17 @@ export default function GenreSelectionPage() {
           selectedIds.size === initialIdsRef.current.size &&
           [...selectedIds].every(id => initialIdsRef.current.has(id))
         if (unchanged) {
-          navigate(-1)
+          setIsSubmitting(false)
+          navigate('/settings', { replace: true })
           return
         }
-        await updateMyGenres(genreIds)
-        navigate(-1)
+        try {
+          await updateMyGenres(genreIds)
+          navigate('/settings', { replace: true })
+        } finally {
+          setIsSubmitting(false)
+        }
+        return
       } else {
         await completeOnboarding({
           nickname: user.nickname,
