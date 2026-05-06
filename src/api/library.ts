@@ -209,8 +209,6 @@ export async function removeLibraryBook(libraryBookId: number): Promise<void> {
   }
 }
 
-// AbortSignal 미지원 유지: POST는 서버 상태를 변경하므로 클라이언트에서 중단해도 서버 반영 여부가 불확실하고
-// (실제로 DB 쓰기가 이미 커밋되었을 수 있음), 취소의 실효성이 낮다. 대신 호출측에서 이중 클릭 방지(disabled)로 중복 호출을 막는다.
 export interface WisdomTowerBook {
   libraryBookId: number
   bookId: number
@@ -239,6 +237,8 @@ export async function getWisdomTower(signal?: AbortSignal): Promise<WisdomTowerR
   }
 }
 
+// AbortSignal 미지원 유지: POST는 서버 상태를 변경하므로 클라이언트에서 중단해도 서버 반영 여부가 불확실하고
+// (실제로 DB 쓰기가 이미 커밋되었을 수 있음), 취소의 실효성이 낮다. 대신 호출측에서 이중 클릭 방지(disabled)로 중복 호출을 막는다.
 export async function addLibraryBook(
   bookId: number,
   status: ReadingStatus
