@@ -51,6 +51,7 @@ export default function AuthCallbackPage() {
             email: result.user.email,
             emailVerified: result.user.emailVerified,
             onboardingCompleted: result.user.onboardingCompleted,
+            authProvider: 'GOOGLE',
           },
           result.accessToken
         )

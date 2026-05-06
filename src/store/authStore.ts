@@ -9,6 +9,7 @@ interface User {
   bio?: string | null
   emailVerified?: boolean
   onboardingCompleted?: boolean
+  authProvider?: 'EMAIL' | 'GOOGLE'
 }
 
 interface AuthState {

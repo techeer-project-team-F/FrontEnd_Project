@@ -61,6 +61,7 @@ export default function LoginPage() {
           bio: result.user.bio,
           emailVerified: result.user.emailVerified,
           onboardingCompleted: result.user.onboardingCompleted,
+          authProvider: 'EMAIL',
         },
         result.accessToken
       )

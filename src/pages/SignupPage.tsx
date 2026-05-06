@@ -131,6 +131,7 @@ export default function SignupPage() {
           email: result.user.email,
           bio: result.user.bio,
           emailVerified: result.user.emailVerified,
+          authProvider: 'EMAIL',
         },
         result.accessToken
       )
