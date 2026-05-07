@@ -1,5 +1,5 @@
 import apiClient from './client'
-import { ApiResponse, normalizeAxiosError } from './_helpers'
+import { ApiResponse, normalizeAxiosError, parseApiResponse } from './_helpers'
 import type { Genre } from './genre'
 
 export type LibraryVisibility = 'PUBLIC' | 'PRIVATE'
@@ -89,6 +89,50 @@ export async function changePassword(currentPassword: string, newPassword: strin
     await apiClient.put('/api/v1/users/me/password', { currentPassword, newPassword })
   } catch (error) {
     throw normalizeAxiosError(error, '비밀번호 변경에 실패했습니다. 잠시 후 다시 시도해주세요.')
+  }
+}
+
+export interface SettingsResponse {
+  likeEnabled: boolean
+  commentEnabled: boolean
+  followEnabled: boolean
+  followingReviewEnabled: boolean
+  libraryVisibility: LibraryVisibility
+}
+
+export interface SettingsUpdateRequest {
+  likeEnabled?: boolean
+  commentEnabled?: boolean
+  followEnabled?: boolean
+  followingReviewEnabled?: boolean
+  libraryVisibility?: LibraryVisibility
+}
+
+export async function getSettings(signal?: AbortSignal): Promise<SettingsResponse> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<SettingsResponse>>(
+      '/api/v1/users/me/settings',
+      { signal }
+    )
+    return parseApiResponse(data, '설정 조회 응답이 올바르지 않습니다.')
+  } catch (error) {
+    throw normalizeAxiosError(error, '설정을 불러오지 못했습니다.')
+  }
+}
+
+/**
+ * 설정 수정. null/undefined 필드는 백엔드에서 기존값을 유지하므로
+ * 변경된 필드만 전달하면 된다 (partial update).
+ */
+export async function updateSettings(request: SettingsUpdateRequest): Promise<SettingsResponse> {
+  try {
+    const { data } = await apiClient.patch<ApiResponse<SettingsResponse>>(
+      '/api/v1/users/me/settings',
+      request
+    )
+    return parseApiResponse(data, '설정 수정 응답이 올바르지 않습니다.')
+  } catch (error) {
+    throw normalizeAxiosError(error, '설정 변경에 실패했습니다.')
   }
 }
 
