@@ -2,9 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { cn } from '@/lib/utils'
-import type { ReadingStatus } from '@/types'
 import BottomNav from '@/components/layout/BottomNav'
-import { getMyLibrary, backendToFrontStatus, type LibraryBookSummary } from '@/api/library'
+import {
+  getMyLibrary,
+  backendToFrontStatus,
+  type LibraryBookSummary,
+  type ReadingStatus,
+} from '@/api/library'
 
 type FilterValue = ReadingStatus | 'all'
 

@@ -3,11 +3,33 @@ import { Link, useNavigate } from 'react-router-dom'
 import { likeReview, unlikeReview } from '@/api/review'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
-import type { Memo } from '@/types'
+import type { ReadingStatus } from '@/api/library'
 import StarRating from './StarRating'
 
+export interface ReviewCardData {
+  id: number
+  content: string
+  isLiked: boolean
+  likeCount: number
+  createdAt: string
+  rating?: number
+  readingStatus?: ReadingStatus
+  hasSpoiler?: boolean
+  commentCount?: number
+  author: {
+    id: number
+    nickname: string
+    profileImageUrl?: string
+  }
+  book: {
+    title: string
+    author: string
+    coverImageUrl: string
+  }
+}
+
 interface ReviewCardProps {
-  review: Memo
+  review: ReviewCardData
   className?: string
 }
 

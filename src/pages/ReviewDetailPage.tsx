@@ -9,7 +9,7 @@ import {
   unlikeReview,
   type ReviewDetail,
 } from '@/api/review'
-import { backendToFrontStatus } from '@/api/library'
+import { backendToFrontStatus, type ReadingStatus } from '@/api/library'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
 import {
@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/dialog'
 import CommentSection from '@/components/comment/CommentSection'
 import { useAuthStore } from '@/store/authStore'
-import type { ReadingStatus } from '@/types'
 
 const readingStatusLabel: Record<ReadingStatus, string> = {
   finished: '다 읽음',

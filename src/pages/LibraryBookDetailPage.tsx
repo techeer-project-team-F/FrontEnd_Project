@@ -10,6 +10,7 @@ import {
   backendToFrontStatus,
   frontToBackendStatus,
   type LibraryBookDetail,
+  type ReadingStatus,
 } from '@/api/library'
 import AddToLibrarySheet from '@/components/common/AddToLibrarySheet'
 import {
@@ -20,7 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import type { ReadingStatus } from '@/types'
 
 const statusLabel: Record<ReadingStatus, { text: string; emoji: string; bg: string }> = {
   want_to_read: { text: '읽고 싶은', emoji: '📖', bg: 'bg-primary/10' },

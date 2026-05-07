@@ -12,9 +12,8 @@ import {
   type BookReviewItem,
   type BackendReadingStatus,
 } from '@/api/book'
-import { addLibraryBook, updateLibraryBookStatus } from '@/api/library'
+import { addLibraryBook, updateLibraryBookStatus, type ReadingStatus } from '@/api/library'
 import { formatRelativeTime } from '@/lib/utils'
-import type { ReadingStatus } from '@/types'
 
 const statusEmoji: Record<ReadingStatus, string> = {
   want_to_read: '📖 읽고 싶은',
