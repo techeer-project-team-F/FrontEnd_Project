@@ -138,14 +138,14 @@ export default function SettingsPage() {
 
   /**
    * 토글 변경 핸들러. 낙관적으로 즉시 UI 반영 후 API 호출.
-   * 실패 시 이전 설정으로 롤백. 개별 필드별 잠금으로 여러 토글을
-   * 빠르게 연속 변경해도 각각 독립적으로 처리됨.
+   * 성공/실패 시 변경한 키만 현재 상태에 머지해서, 동시에 진행 중인
+   * 다른 토글의 낙관적 업데이트를 덮어쓰지 않는다.
    */
   const handleToggle = async (patch: Partial<SettingsResponse>) => {
     if (!settings) return
-    const keys = Object.keys(patch)
+    const keys = Object.keys(patch) as (keyof SettingsResponse)[]
     if (keys.some(k => updatingKeys.has(k))) return
-    const prev = settings
+    const snapshot = { ...settings }
     setSettings({ ...settings, ...patch })
     setUpdatingKeys(prev => {
       const next = new Set(prev)
@@ -154,9 +154,19 @@ export default function SettingsPage() {
     })
     try {
       const result = await updateSettings(patch)
-      setSettings(result)
+      setSettings(curr => {
+        if (!curr) return result
+        const next = { ...curr }
+        for (const k of keys) next[k] = result[k] as never
+        return next
+      })
     } catch {
-      setSettings(prev)
+      setSettings(curr => {
+        if (!curr) return snapshot
+        const next = { ...curr }
+        for (const k of keys) next[k] = snapshot[k] as never
+        return next
+      })
     } finally {
       setUpdatingKeys(prev => {
         const next = new Set(prev)
