@@ -1,10 +1,20 @@
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import type { Book } from '@/types'
 import StarRating from './StarRating'
 
+export interface BookListItemData {
+  isbn: string
+  title: string
+  author: string
+  publisher: string
+  coverImageUrl: string
+  pageCount?: number
+  rating?: number
+  reviewCount?: number
+}
+
 interface BookListItemProps {
-  book: Book
+  book: BookListItemData
   className?: string
 }
 

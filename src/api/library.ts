@@ -1,7 +1,7 @@
 import apiClient from './client'
 import { ApiResponse, normalizeAxiosError, parseApiResponse } from './_helpers'
 import type { BackendReadingStatus } from './book'
-import type { ReadingStatus } from '@/types'
+export type ReadingStatus = 'reading' | 'finished' | 'want_to_read' | 'stopped'
 
 export const frontToBackendStatus: Record<ReadingStatus, BackendReadingStatus> = {
   want_to_read: 'WANT_TO_READ',

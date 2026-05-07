@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { ReadingStatus } from '@/types'
+import type { ReadingStatus } from '@/api/library'
 
 interface AddToLibrarySheetProps {
   isOpen: boolean

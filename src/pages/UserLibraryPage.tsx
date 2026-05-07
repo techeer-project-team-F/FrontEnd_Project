@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { cn } from '@/lib/utils'
-import type { ReadingStatus } from '@/types'
 import AppHeader from '@/components/layout/AppHeader'
 import {
   getUserLibrary,
   backendToFrontStatus,
   type LibraryBookSummary,
   type LibraryVisibility,
+  type ReadingStatus,
 } from '@/api/library'
 import { getUserProfile } from '@/api/member'
 import { useAuthStore } from '@/store/authStore'

@@ -4,43 +4,28 @@ import axios from 'axios'
 import { cn } from '@/lib/utils'
 import { getFollowingFeed, type FeedItem } from '@/api/feed'
 import { getUnreadNotificationCount } from '@/api/notification'
-import type { Memo } from '@/types'
 import BottomNav from '@/components/layout/BottomNav'
-import ReviewCard from '@/components/common/ReviewCard'
+import ReviewCard, { type ReviewCardData } from '@/components/common/ReviewCard'
 
 type TabValue = 'following' | 'recommend'
 
 /**
- * 백엔드 `FeedItem` 응답을 `ReviewCard`가 소비하는 `Memo` 형태로 매핑한다.
- *
- * `Memo`는 본래 단일 감상 도메인 모델이라 `book.isbn`, `book.publisher`,
- * `author.followerCount`, `author.followingCount` 등 피드 응답에는 없는 필드를
- * 가지고 있다. 이 함수는 해당 필드를 빈 값/0으로 채워 카드 렌더링에만 필요한
- * 최소 정보를 안전하게 전달한다.
- *
- * @remarks 후속 리팩터에서 ReviewCard의 prop을 피드 전용 슬림 타입으로 쪼개면
- * 이 변환 함수 자체를 제거할 수 있다.
- *
- * @param item 백엔드 `/api/v1/feed/following` 응답의 단일 피드 아이템
- * @returns ReviewCard가 그대로 받을 수 있는 `Memo` 객체
+ * 백엔드 `FeedItem` 응답을 `ReviewCardData`로 매핑한다.
+ * 슬림 타입이라 더미 필드 없이 필요한 정보만 전달.
  */
-function toMemo(item: FeedItem): Memo {
+function toReviewCardData(item: FeedItem): ReviewCardData {
   return {
     id: item.review.reviewId,
     content: item.review.content,
     book: {
-      isbn: '',
       title: item.review.book.title,
       author: item.review.book.author,
-      publisher: '',
       coverImageUrl: item.review.book.coverImageUrl ?? '',
     },
     author: {
       id: item.review.user.userId,
       nickname: item.review.user.nickname,
       profileImageUrl: item.review.user.profileImageUrl ?? undefined,
-      followerCount: 0,
-      followingCount: 0,
     },
     likeCount: item.review.likeCount,
     isLiked: item.review.isLiked,
@@ -83,7 +68,7 @@ export default function HomeFeedPage() {
    */
   const [unreadCount, setUnreadCount] = useState(0)
 
-  const [items, setItems] = useState<Memo[]>([])
+  const [items, setItems] = useState<ReviewCardData[]>([])
   const [nextCursor, setNextCursor] = useState<number | null>(null)
   const [hasNext, setHasNext] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -135,7 +120,7 @@ export default function HomeFeedPage() {
           signal: controller.signal,
         })
         if (controller.signal.aborted) return
-        setItems(response.content.map(toMemo))
+        setItems(response.content.map(toReviewCardData))
         setNextCursor(response.nextCursor)
         setHasNext(response.hasNext)
       } catch (error) {
@@ -227,7 +212,7 @@ export default function HomeFeedPage() {
       if (controller.signal.aborted) return
       // 도중에 탭이 바뀌었으면 응답 버림
       if (stateRef.current.activeTab !== 'following') return
-      setItems(prev => [...prev, ...response.content.map(toMemo)])
+      setItems(prev => [...prev, ...response.content.map(toReviewCardData)])
       setNextCursor(response.nextCursor)
       setHasNext(response.hasNext)
     } catch (error) {

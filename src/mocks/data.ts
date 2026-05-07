@@ -1,7 +1,8 @@
-import type { Book, LibraryBook, Memo, Notification, User } from '@/types'
+import type { BookListItemData } from '@/components/common/BookListItem'
+import type { ReviewCardData } from '@/components/common/ReviewCard'
 
 // 유저 Mock 데이터
-export const mockUsers: User[] = [
+export const mockUsers = [
   {
     id: 1,
     nickname: '독서광',
@@ -26,15 +27,13 @@ export const mockUsers: User[] = [
 ]
 
 // 도서 Mock 데이터
-export const mockBooks: Book[] = [
+export const mockBooks: BookListItemData[] = [
   {
     isbn: '9788937460449',
     title: '데미안',
     author: '헤르만 헤세',
     publisher: '민음사',
     coverImageUrl: 'https://picsum.photos/seed/demian/200/300',
-    description:
-      '새는 알에서 나오려고 투쟁한다. 알은 세계이다. 태어나려는 자는 하나의 세계를 파괴하지 않으면 안 된다.',
     pageCount: 248,
     rating: 4.8,
     reviewCount: 1200,
@@ -45,8 +44,6 @@ export const mockBooks: Book[] = [
     author: 'F. 스콧 피츠제럴드',
     publisher: '문학동네',
     coverImageUrl: 'https://picsum.photos/seed/gatsby/200/300',
-    description:
-      '우리는 과거 속으로 끊임없이 밀려가면서도, 흐름을 거스르는 배처럼 앞으로 나아간다.',
     pageCount: 272,
     rating: 4.5,
     reviewCount: 850,
@@ -57,7 +54,6 @@ export const mockBooks: Book[] = [
     author: 'J.D. 샐린저',
     publisher: '문학동네',
     coverImageUrl: 'https://picsum.photos/seed/catcher/200/300',
-    description: '홀든 콜필드의 이야기를 통해 청소년기의 방황과 성장을 그린 소설.',
     pageCount: 320,
     rating: 4.6,
     reviewCount: 920,
@@ -68,7 +64,6 @@ export const mockBooks: Book[] = [
     author: 'Matt Haig',
     publisher: 'Canongate Books',
     coverImageUrl: 'https://picsum.photos/seed/midnight/200/300',
-    description: '인생의 수많은 선택지들에 대해 다시 생각해보게 하는 따뜻한 판타지 소설.',
     pageCount: 288,
     rating: 4.8,
     reviewCount: 1240,
@@ -106,7 +101,7 @@ export const mockBooks: Book[] = [
 ]
 
 // 리뷰 Mock 데이터
-export const mockReviews: Memo[] = [
+export const mockReviews: ReviewCardData[] = [
   {
     id: 1,
     content:
@@ -152,10 +147,15 @@ export const mockReviews: Memo[] = [
 ]
 
 // 검색 결과 Mock 데이터
-export const mockSearchResults: Book[] = [mockBooks[0], mockBooks[4], mockBooks[5], mockBooks[6]]
+export const mockSearchResults: BookListItemData[] = [
+  mockBooks[0],
+  mockBooks[4],
+  mockBooks[5],
+  mockBooks[6],
+]
 
 // BookDetail용 리뷰 Mock 데이터
-export const mockBookDetailReviews: Memo[] = [
+export const mockBookDetailReviews: ReviewCardData[] = [
   {
     id: 4,
     content:
@@ -201,10 +201,10 @@ export const mockBookDetailReviews: Memo[] = [
 ]
 
 // 알림 Mock 데이터
-export const mockNotifications: Notification[] = [
+export const mockNotifications = [
   {
     id: 1,
-    type: 'like',
+    type: 'like' as const,
     senderNickname: '김지우',
     senderProfileImageUrl: 'https://picsum.photos/seed/noti1/100/100',
     message: '님이 회원님의 감상에 좋아요를 눌렀습니다.',
@@ -213,7 +213,7 @@ export const mockNotifications: Notification[] = [
   },
   {
     id: 2,
-    type: 'comment',
+    type: 'comment' as const,
     senderNickname: '이민호',
     senderProfileImageUrl: 'https://picsum.photos/seed/noti2/100/100',
     message: '님이 회원님의 감상에 댓글을 남겼습니다.',
@@ -222,7 +222,7 @@ export const mockNotifications: Notification[] = [
   },
   {
     id: 3,
-    type: 'follow',
+    type: 'follow' as const,
     senderNickname: '박서연',
     senderProfileImageUrl: 'https://picsum.photos/seed/noti3/100/100',
     message: '님이 회원님을 팔로우하기 시작했습니다.',
@@ -231,7 +231,7 @@ export const mockNotifications: Notification[] = [
   },
   {
     id: 4,
-    type: 'new_review',
+    type: 'new_review' as const,
     senderNickname: '최준혁',
     senderProfileImageUrl: 'https://picsum.photos/seed/noti4/100/100',
     message: '님이 새로운 감상을 올렸습니다.',
@@ -241,7 +241,7 @@ export const mockNotifications: Notification[] = [
   },
   {
     id: 5,
-    type: 'like',
+    type: 'like' as const,
     senderNickname: '윤아름',
     senderProfileImageUrl: 'https://picsum.photos/seed/noti5/100/100',
     message: '님이 회원님의 감상에 좋아요를 눌렀습니다.',
@@ -251,9 +251,9 @@ export const mockNotifications: Notification[] = [
 ]
 
 // 내 서재 Mock 데이터
-export const mockLibraryBooks: LibraryBook[] = [
-  { book: mockBooks[0], readingStatus: 'finished', addedAt: '2024-06-01' },
-  { book: mockBooks[2], readingStatus: 'reading', addedAt: '2024-06-10' },
+export const mockLibraryBooks = [
+  { book: mockBooks[0], readingStatus: 'finished' as const, addedAt: '2024-06-01' },
+  { book: mockBooks[2], readingStatus: 'reading' as const, addedAt: '2024-06-10' },
   {
     book: {
       isbn: '9788937460510',
@@ -265,7 +265,7 @@ export const mockLibraryBooks: LibraryBook[] = [
       rating: 4.3,
       reviewCount: 680,
     },
-    readingStatus: 'finished',
+    readingStatus: 'finished' as const,
     addedAt: '2024-05-20',
   },
   {
@@ -279,7 +279,7 @@ export const mockLibraryBooks: LibraryBook[] = [
       rating: 4.4,
       reviewCount: 750,
     },
-    readingStatus: 'want_to_read',
+    readingStatus: 'want_to_read' as const,
     addedAt: '2024-06-15',
   },
   {
@@ -293,10 +293,10 @@ export const mockLibraryBooks: LibraryBook[] = [
       rating: 4.1,
       reviewCount: 320,
     },
-    readingStatus: 'reading',
+    readingStatus: 'reading' as const,
     addedAt: '2024-06-12',
   },
-  { book: mockBooks[1], readingStatus: 'finished', addedAt: '2024-04-10' },
+  { book: mockBooks[1], readingStatus: 'finished' as const, addedAt: '2024-04-10' },
   {
     book: {
       isbn: '9788937460541',
@@ -308,7 +308,7 @@ export const mockLibraryBooks: LibraryBook[] = [
       rating: 3.9,
       reviewCount: 210,
     },
-    readingStatus: 'stopped',
+    readingStatus: 'stopped' as const,
     addedAt: '2024-03-01',
   },
   {
@@ -322,7 +322,7 @@ export const mockLibraryBooks: LibraryBook[] = [
       rating: 4.9,
       reviewCount: 2100,
     },
-    readingStatus: 'want_to_read',
+    readingStatus: 'want_to_read' as const,
     addedAt: '2024-06-18',
   },
   {
@@ -336,7 +336,7 @@ export const mockLibraryBooks: LibraryBook[] = [
       rating: 4.2,
       reviewCount: 980,
     },
-    readingStatus: 'finished',
+    readingStatus: 'finished' as const,
     addedAt: '2024-02-15',
   },
 ]
