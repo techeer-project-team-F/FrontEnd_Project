@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import BottomNav from '@/components/layout/BottomNav'
 import { getMyProfile, type MyProfile } from '@/api/member'
@@ -386,9 +386,10 @@ export default function MyProfilePage() {
                 const palette = TOWER_PALETTE[index % TOWER_PALETTE.length]
                 const width = TOWER_WIDTHS[index % TOWER_WIDTHS.length]
                 return (
-                  <div
+                  <Link
                     key={book.libraryBookId}
-                    className="relative h-[58px]"
+                    to={`/library/${book.libraryBookId}`}
+                    className="relative block h-[58px] transition-opacity hover:opacity-80"
                     style={{
                       width: `${width}%`,
                       marginTop: index === 0 ? 0 : '-2px',
@@ -400,7 +401,7 @@ export default function MyProfilePage() {
                     >
                       <span className="truncate px-4">{book.title}</span>
                     </div>
-                  </div>
+                  </Link>
                 )
               })}
             </div>
