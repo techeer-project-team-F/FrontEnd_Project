@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { likeReview, unlikeReview } from '@/api/review'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
+import type { ReadingStatus } from '@/api/library'
 import StarRating from './StarRating'
 
 export interface ReviewCardData {
@@ -12,7 +13,7 @@ export interface ReviewCardData {
   likeCount: number
   createdAt: string
   rating?: number
-  readingStatus?: string
+  readingStatus?: ReadingStatus
   hasSpoiler?: boolean
   commentCount?: number
   author: {

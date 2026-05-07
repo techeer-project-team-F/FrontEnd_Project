@@ -32,13 +32,13 @@ export default function BookListItem({ book, className }: BookListItemProps) {
         <p className="truncate text-sm text-muted-foreground">{book.author} 저</p>
         <p className="truncate text-xs text-muted-foreground/70">
           {book.publisher}
-          {book.pageCount && ` · ${book.pageCount}p`}
+          {book.pageCount != null && ` · ${book.pageCount}p`}
         </p>
-        {book.rating && (
+        {book.rating != null && (
           <div className="mt-auto flex items-center gap-1">
             <StarRating rating={book.rating} size="sm" />
             <span className="text-sm font-bold text-primary">{book.rating}</span>
-            {book.reviewCount && (
+            {book.reviewCount != null && (
               <span className="ml-1 text-xs text-muted-foreground">
                 ({book.reviewCount.toLocaleString()} reviews)
               </span>
