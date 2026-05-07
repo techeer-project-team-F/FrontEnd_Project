@@ -8,9 +8,16 @@ import { type ApiResponse, normalizeAxiosError, parseApiResponse } from './_help
  * - `COMMENT`: 내 감상에 댓글 (target: reviewId + commentId)
  * - `COMMENT_LIKE`: 내 댓글에 좋아요 (target: reviewId + commentId)
  * - `FOLLOW`: 나를 팔로우 (target: actor.userId)
+ * - `FOLLOWING_REVIEW`: 내가 팔로우하는 사용자가 새 감상 작성 (target: reviewId)
  * - `SYSTEM`: 시스템 메시지 (actor 없음, 이동 없음)
  */
-export type NotificationType = 'REVIEW_LIKE' | 'COMMENT' | 'COMMENT_LIKE' | 'FOLLOW' | 'SYSTEM'
+export type NotificationType =
+  | 'REVIEW_LIKE'
+  | 'COMMENT'
+  | 'COMMENT_LIKE'
+  | 'FOLLOW'
+  | 'FOLLOWING_REVIEW'
+  | 'SYSTEM'
 
 export interface NotificationActor {
   userId: number

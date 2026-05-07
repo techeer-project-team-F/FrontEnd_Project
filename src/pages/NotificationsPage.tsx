@@ -23,6 +23,7 @@ const typeIcon: Record<NotificationType, { icon: string; bg: string }> = {
   COMMENT: { icon: 'chat_bubble', bg: 'bg-blue-500' },
   COMMENT_LIKE: { icon: 'favorite', bg: 'bg-red-500' },
   FOLLOW: { icon: 'person_add', bg: 'bg-emerald-500' },
+  FOLLOWING_REVIEW: { icon: 'rate_review', bg: 'bg-violet-500' },
   SYSTEM: { icon: 'campaign', bg: 'bg-muted-foreground' },
 }
 
@@ -44,6 +45,8 @@ function buildNotificationMessage(n: NotificationItem): string {
       return '님이 회원님의 댓글에 좋아요를 눌렀습니다.'
     case 'FOLLOW':
       return '님이 회원님을 팔로우하기 시작했습니다.'
+    case 'FOLLOWING_REVIEW':
+      return '님이 새 감상을 작성했습니다.'
     case 'SYSTEM':
       return '새로운 시스템 알림이 있습니다.'
   }
@@ -65,6 +68,9 @@ function resolveDestination(n: NotificationItem): string | null {
       return n.reviewId != null ? `/review/${n.reviewId}#comments` : null
     case 'FOLLOW':
       return n.actor ? `/user/${n.actor.userId}` : null
+    case 'FOLLOWING_REVIEW':
+      // reviewId는 항상 존재해야 함; null이면 백엔드 이상
+      return n.reviewId != null ? `/review/${n.reviewId}` : null
     case 'SYSTEM':
       return null
   }
