@@ -277,11 +277,12 @@ export default function HomeFeedPage() {
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="flex items-center justify-between px-4 py-3">
+          <div className="w-10" />
           <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
           <Link
             to="/notifications"
             aria-label={unreadCount > 0 ? `알림 (미읽음 ${unreadCount}개)` : '알림'}
-            className="relative rounded-full p-2 transition-colors hover:bg-primary/5"
+            className="relative flex w-10 items-center justify-center rounded-full p-2 transition-colors hover:bg-primary/5"
           >
             <span className="material-symbols-outlined text-primary">notifications</span>
             {unreadCount > 0 && (

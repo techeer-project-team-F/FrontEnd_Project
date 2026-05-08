@@ -180,9 +180,9 @@ export default function SettingsPage() {
     if (isLoggingOut) return
     setIsLoggingOut(true)
     try {
-      await logout()
-    } catch (error) {
-      console.error('로그아웃 API 호출 실패:', error)
+      await logout(useAuthStore.getState().accessToken)
+    } catch {
+      // 로그아웃 API 실패는 비치명적 — finally에서 로컬 세션 정리 보장
     } finally {
       clearAuth()
       navigate('/login', { replace: true })

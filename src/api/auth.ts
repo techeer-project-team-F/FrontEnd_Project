@@ -188,9 +188,11 @@ export async function resendEmailCode(email: string): Promise<void> {
   }
 }
 
-export async function logout(): Promise<void> {
+export async function logout(accessToken?: string | null): Promise<void> {
   try {
-    await apiClient.post('/api/v1/auth/logout')
+    await apiClient.post('/api/v1/auth/logout', null, {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    })
   } catch (error) {
     throw normalizeAxiosError(error, '로그아웃에 실패했습니다. 잠시 후 다시 시도해주세요.')
   }

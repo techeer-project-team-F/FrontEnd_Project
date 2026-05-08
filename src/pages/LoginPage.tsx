@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { login, getGoogleLoginUrl } from '@/api/auth'
+import { isCarouselSeen } from '@/lib/onboarding'
 
 const loginSchema = z.object({
   email: z.string().email('올바른 이메일을 입력하세요'),
@@ -65,7 +66,9 @@ export default function LoginPage() {
         },
         result.accessToken
       )
-      navigate(result.user.onboardingCompleted ? '/' : '/onboarding/genre', { replace: true })
+      navigate(result.user.onboardingCompleted && isCarouselSeen() ? '/' : '/onboarding', {
+        replace: true,
+      })
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '로그인에 실패했습니다.')
     } finally {

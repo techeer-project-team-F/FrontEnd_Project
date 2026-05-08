@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { googleLogin } from '@/api/auth'
+import { isCarouselSeen } from '@/lib/onboarding'
 
 export default function AuthCallbackPage() {
   const [searchParams] = useSearchParams()
@@ -55,7 +56,9 @@ export default function AuthCallbackPage() {
           },
           result.accessToken
         )
-        navigate(result.user.onboardingCompleted ? '/' : '/onboarding/genre', { replace: true })
+        navigate(result.user.onboardingCompleted && isCarouselSeen() ? '/' : '/onboarding', {
+          replace: true,
+        })
       })
       .catch(err => {
         setErrorMessage(err instanceof Error ? err.message : 'Google 로그인에 실패했습니다.')

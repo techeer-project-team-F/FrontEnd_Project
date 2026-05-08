@@ -67,16 +67,12 @@ export default function PopupBanner({
   if (!visible) return null
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={close}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={imageAlt}
         className="relative w-[85vw] max-w-xs overflow-hidden rounded-2xl bg-card shadow-xl"
-        onClick={e => e.stopPropagation()}
       >
         <button
           ref={closeButtonRef}

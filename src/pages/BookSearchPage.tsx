@@ -586,8 +586,8 @@ export default function BookSearchPage() {
             }
             className="h-full min-w-0 flex-1 border-none bg-transparent px-3 text-base font-normal outline-none placeholder:text-primary/40 focus:ring-0"
           />
-          {/* 바코드 스캐너는 도서 탭에서만 의미 있음 */}
-          {activeTab === 'book' && (
+          {/* 바코드 스캐너: 도서/전체 탭에서 표시. ISBN 감지 시 자동으로 도서 탭 전환 */}
+          {(activeTab === 'book' || activeTab === 'all') && (
             <button
               type="button"
               onClick={() => setIsScannerOpen(true)}

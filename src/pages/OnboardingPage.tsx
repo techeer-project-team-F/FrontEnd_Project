@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { isCarouselSeen, markCarouselSeen } from '@/lib/onboarding'
 import { useAuthStore } from '@/store/authStore'
 
 const slides = [
@@ -47,17 +48,25 @@ export default function OnboardingPage() {
   const navigate = useNavigate()
   const onboardingCompleted = useAuthStore(state => state.user?.onboardingCompleted)
 
-  if (onboardingCompleted) return <Navigate to="/" replace />
+  if (isCarouselSeen()) {
+    return <Navigate to={onboardingCompleted ? '/' : '/onboarding/genre'} replace />
+  }
 
-  const completeOnboarding = () => {
-    navigate('/onboarding/genre', { replace: true })
+  /**
+   * 캐러셀 완료 후 localStorage에 "봤음" 플래그를 저장하고,
+   * onboardingCompleted(백엔드) 값에 따라 장르 선택 또는 홈으로 분기.
+   * 캐시 초기화 시 localStorage가 지워지므로 캐러셀이 다시 노출된다.
+   */
+  const finishCarousel = () => {
+    markCarouselSeen()
+    navigate(onboardingCompleted ? '/' : '/onboarding/genre', { replace: true })
   }
 
   const handleNext = () => {
     if (step < slides.length - 1) {
       setStep(prev => prev + 1)
     } else {
-      completeOnboarding()
+      finishCarousel()
     }
   }
 
@@ -69,7 +78,7 @@ export default function OnboardingPage() {
       {/* Header */}
       <header className="flex items-center justify-between p-6">
         <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
-        <button onClick={completeOnboarding} className="text-sm font-medium text-primary/60">
+        <button onClick={finishCarousel} className="text-sm font-medium text-primary/60">
           건너뛰기
         </button>
       </header>

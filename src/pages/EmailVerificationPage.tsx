@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { verifyEmail, resendEmailCode } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
+import { isCarouselSeen } from '@/lib/onboarding'
 
 // 진입 경로별로 EmailVerificationPage가 다른 탈출 UI를 노출하기 위한 식별자.
 // sender(SignupPage/SettingsPage)와 receiver(이 파일)가 동일한 union을 공유해 오타 시 컴파일 단계에서 차단.
@@ -101,7 +102,8 @@ export default function EmailVerificationPage() {
           }
         }
         setCode(['', '', '', '', '', ''])
-        navigate('/', { replace: true })
+        const onboardingDone = useAuthStore.getState().user?.onboardingCompleted
+        navigate(onboardingDone && isCarouselSeen() ? '/' : '/onboarding', { replace: true })
       } else {
         setErrorMessage('인증 코드가 올바르지 않습니다. 다시 확인해주세요.')
       }
