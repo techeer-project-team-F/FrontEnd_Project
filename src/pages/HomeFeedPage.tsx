@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { getFollowingFeed, type FeedItem } from '@/api/feed'
 import { getUnreadNotificationCount } from '@/api/notification'
 import BottomNav from '@/components/layout/BottomNav'
+import PopupBanner from '@/components/common/PopupBanner'
 import ReviewCard, { type ReviewCardData } from '@/components/common/ReviewCard'
 
 type TabValue = 'following' | 'recommend'
@@ -418,6 +419,11 @@ export default function HomeFeedPage() {
         )}
       </main>
 
+      <PopupBanner
+        imageUrl="/images/popup/event-banner.png"
+        imageAlt="Shelfeed 이벤트"
+        storageKey="home-popup"
+      />
       <BottomNav />
     </div>
   )
