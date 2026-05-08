@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 interface PopupBannerProps {
@@ -30,6 +30,8 @@ export default function PopupBanner({
     return true
   })
 
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+
   const close = useCallback(() => {
     setVisible(false)
     onClose?.()
@@ -37,6 +39,7 @@ export default function PopupBanner({
 
   useEffect(() => {
     if (!visible) return
+    closeButtonRef.current?.focus()
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKeyDown = (e: KeyboardEvent) => {
@@ -76,6 +79,7 @@ export default function PopupBanner({
         onClick={e => e.stopPropagation()}
       >
         <button
+          ref={closeButtonRef}
           type="button"
           onClick={close}
           aria-label="닫기"
