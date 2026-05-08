@@ -47,17 +47,37 @@ export default function OnboardingPage() {
   const navigate = useNavigate()
   const onboardingCompleted = useAuthStore(state => state.user?.onboardingCompleted)
 
-  if (onboardingCompleted) return <Navigate to="/" replace />
+  const carouselSeen = (() => {
+    try {
+      return !!localStorage.getItem('onboarding-carousel-seen')
+    } catch {
+      return false
+    }
+  })()
 
-  const completeOnboarding = () => {
-    navigate('/onboarding/genre', { replace: true })
+  if (carouselSeen) {
+    return <Navigate to={onboardingCompleted ? '/' : '/onboarding/genre'} replace />
+  }
+
+  /**
+   * 캐러셀 완료 후 localStorage에 "봤음" 플래그를 저장하고,
+   * onboardingCompleted(백엔드) 값에 따라 장르 선택 또는 홈으로 분기.
+   * 캐시 초기화 시 localStorage가 지워지므로 캐러셀이 다시 노출된다.
+   */
+  const finishCarousel = () => {
+    try {
+      localStorage.setItem('onboarding-carousel-seen', 'true')
+    } catch {
+      /* Safari 프라이빗 모드 등 */
+    }
+    navigate(onboardingCompleted ? '/' : '/onboarding/genre', { replace: true })
   }
 
   const handleNext = () => {
     if (step < slides.length - 1) {
       setStep(prev => prev + 1)
     } else {
-      completeOnboarding()
+      finishCarousel()
     }
   }
 
@@ -69,7 +89,7 @@ export default function OnboardingPage() {
       {/* Header */}
       <header className="flex items-center justify-between p-6">
         <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
-        <button onClick={completeOnboarding} className="text-sm font-medium text-primary/60">
+        <button onClick={finishCarousel} className="text-sm font-medium text-primary/60">
           건너뛰기
         </button>
       </header>

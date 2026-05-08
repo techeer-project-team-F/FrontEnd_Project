@@ -101,7 +101,8 @@ export default function EmailVerificationPage() {
           }
         }
         setCode(['', '', '', '', '', ''])
-        navigate('/', { replace: true })
+        const onboardingDone = useAuthStore.getState().user?.onboardingCompleted
+        navigate(onboardingDone === false ? '/onboarding' : '/', { replace: true })
       } else {
         setErrorMessage('인증 코드가 올바르지 않습니다. 다시 확인해주세요.')
       }

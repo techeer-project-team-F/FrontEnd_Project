@@ -65,7 +65,16 @@ export default function LoginPage() {
         },
         result.accessToken
       )
-      navigate(result.user.onboardingCompleted ? '/' : '/onboarding/genre', { replace: true })
+      const carouselSeen = (() => {
+        try {
+          return !!localStorage.getItem('onboarding-carousel-seen')
+        } catch {
+          return false
+        }
+      })()
+      navigate(result.user.onboardingCompleted && carouselSeen ? '/' : '/onboarding', {
+        replace: true,
+      })
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '로그인에 실패했습니다.')
     } finally {

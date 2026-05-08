@@ -1,5 +1,6 @@
 import apiClient from './client'
 import { ApiResponse, normalizeAxiosError } from './_helpers'
+import { useAuthStore } from '@/store/authStore'
 
 export interface LoginRequest {
   email: string
@@ -189,8 +190,11 @@ export async function resendEmailCode(email: string): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
+  const token = useAuthStore.getState().accessToken
   try {
-    await apiClient.post('/api/v1/auth/logout')
+    await apiClient.post('/api/v1/auth/logout', null, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
   } catch (error) {
     throw normalizeAxiosError(error, '로그아웃에 실패했습니다. 잠시 후 다시 시도해주세요.')
   }

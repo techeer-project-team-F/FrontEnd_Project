@@ -239,13 +239,14 @@ export default function MyLibraryPage() {
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="flex items-center justify-between px-4 py-4">
+          <div className="w-10" />
           <h1 className="text-2xl font-bold">내 서재</h1>
           <button
             type="button"
             onClick={toggleSearch}
             aria-label={isSearchOpen ? '서재 검색 닫기' : '서재 내 검색'}
             aria-expanded={isSearchOpen}
-            className="rounded-full p-2 transition-colors hover:bg-primary/10"
+            className="flex w-10 items-center justify-center rounded-full p-2 transition-colors hover:bg-primary/10"
           >
             <span className="material-symbols-outlined text-primary">
               {isSearchOpen ? 'close' : 'search'}
