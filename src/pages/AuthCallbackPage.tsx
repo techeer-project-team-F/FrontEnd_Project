@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { googleLogin } from '@/api/auth'
+import { isCarouselSeen } from '@/lib/onboarding'
 
 export default function AuthCallbackPage() {
   const [searchParams] = useSearchParams()
@@ -55,14 +56,7 @@ export default function AuthCallbackPage() {
           },
           result.accessToken
         )
-        const carouselSeen = (() => {
-          try {
-            return !!localStorage.getItem('onboarding-carousel-seen')
-          } catch {
-            return false
-          }
-        })()
-        navigate(result.user.onboardingCompleted && carouselSeen ? '/' : '/onboarding', {
+        navigate(result.user.onboardingCompleted && isCarouselSeen() ? '/' : '/onboarding', {
           replace: true,
         })
       })

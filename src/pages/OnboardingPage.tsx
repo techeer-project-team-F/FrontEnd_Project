@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { isCarouselSeen, markCarouselSeen } from '@/lib/onboarding'
 import { useAuthStore } from '@/store/authStore'
 
 const slides = [
@@ -47,15 +48,7 @@ export default function OnboardingPage() {
   const navigate = useNavigate()
   const onboardingCompleted = useAuthStore(state => state.user?.onboardingCompleted)
 
-  const carouselSeen = (() => {
-    try {
-      return !!localStorage.getItem('onboarding-carousel-seen')
-    } catch {
-      return false
-    }
-  })()
-
-  if (carouselSeen) {
+  if (isCarouselSeen()) {
     return <Navigate to={onboardingCompleted ? '/' : '/onboarding/genre'} replace />
   }
 
@@ -65,11 +58,7 @@ export default function OnboardingPage() {
    * 캐시 초기화 시 localStorage가 지워지므로 캐러셀이 다시 노출된다.
    */
   const finishCarousel = () => {
-    try {
-      localStorage.setItem('onboarding-carousel-seen', 'true')
-    } catch {
-      /* Safari 프라이빗 모드 등 */
-    }
+    markCarouselSeen()
     navigate(onboardingCompleted ? '/' : '/onboarding/genre', { replace: true })
   }
 

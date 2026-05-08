@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { login, getGoogleLoginUrl } from '@/api/auth'
+import { isCarouselSeen } from '@/lib/onboarding'
 
 const loginSchema = z.object({
   email: z.string().email('올바른 이메일을 입력하세요'),
@@ -65,14 +66,7 @@ export default function LoginPage() {
         },
         result.accessToken
       )
-      const carouselSeen = (() => {
-        try {
-          return !!localStorage.getItem('onboarding-carousel-seen')
-        } catch {
-          return false
-        }
-      })()
-      navigate(result.user.onboardingCompleted && carouselSeen ? '/' : '/onboarding', {
+      navigate(result.user.onboardingCompleted && isCarouselSeen() ? '/' : '/onboarding', {
         replace: true,
       })
     } catch (error) {

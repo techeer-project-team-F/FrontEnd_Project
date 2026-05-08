@@ -180,7 +180,7 @@ export default function SettingsPage() {
     if (isLoggingOut) return
     setIsLoggingOut(true)
     try {
-      await logout()
+      await logout(useAuthStore.getState().accessToken)
     } catch {
       // 로그아웃 API 실패는 비치명적 — finally에서 로컬 세션 정리 보장
     } finally {
