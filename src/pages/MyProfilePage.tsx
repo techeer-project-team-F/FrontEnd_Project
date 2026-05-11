@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import BottomNav from '@/components/layout/BottomNav'
 import { getMyProfile, type MyProfile } from '@/api/member'
@@ -40,6 +40,7 @@ const categoryStats = [
  */
 export default function MyProfilePage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [profile, setProfile] = useState<MyProfile | null>(null)
   const [wisdomTower, setWisdomTower] = useState<WisdomTowerResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -136,7 +137,7 @@ export default function MyProfilePage() {
     })()
 
     return () => controller.abort()
-  }, [])
+  }, [location.key])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -167,7 +168,7 @@ export default function MyProfilePage() {
       controller.abort()
       loadMoreControllerRef.current?.abort()
     }
-  }, [])
+  }, [location.key])
 
   const handleLoadMoreReviews = async () => {
     if (isReviewsLoadingMore || !hasMoreReviews) return
