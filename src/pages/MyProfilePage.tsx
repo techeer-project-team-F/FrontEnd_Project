@@ -21,13 +21,6 @@ const TOWER_PALETTE = [
 
 const TOWER_WIDTHS = [92, 88, 90, 86, 91, 84, 89, 82, 87, 93, 85, 90, 88, 86, 91]
 
-// 카테고리 분포 — 백엔드 API 미구현으로 placeholder 유지
-const categoryStats = [
-  { label: '소설 60%', color: '#B9935A' },
-  { label: '에세이 25%', color: '#D3BE9E' },
-  { label: '인문 15%', color: '#EEE3D2' },
-]
-
 /**
  * 본인 프로필 페이지.
  *
@@ -35,8 +28,6 @@ const categoryStats = [
  * 1. `getMyProfile` — 프로필 정보 + authStore 동기화
  * 2. `getWisdomTower` — 완독 도서 스택(지혜의 탑) + 통계 카드 + 월별 독서량 파생
  * 3. `getMyReviews` — 공개 감상 타임라인
- *
- * 카테고리 분포 통계는 백엔드 API 미구현으로 mock placeholder 유지.
  */
 export default function MyProfilePage() {
   const navigate = useNavigate()
@@ -447,20 +438,6 @@ export default function MyProfilePage() {
                 <p className="text-sm text-muted-foreground">올해 독서 기록이 없습니다</p>
               </div>
             )}
-
-            {/* 카테고리 분포 — 백엔드 API 미구현, placeholder 유지 */}
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
-              {categoryStats.map(item => (
-                <div key={item.label} className="flex items-center gap-2">
-                  <span
-                    className="inline-block h-3 w-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-sm font-medium text-primary/65">{item.label}</span>
-                </div>
-              ))}
-              <span className="text-xs text-muted-foreground/50">(준비 중)</span>
-            </div>
           </div>
         </section>
 
