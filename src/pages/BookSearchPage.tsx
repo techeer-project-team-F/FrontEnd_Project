@@ -7,8 +7,7 @@ import UserSearchCard from '@/components/common/UserSearchCard'
 import { getBookByIsbn, searchBooks, type BookDetail, type BookSummary } from '@/api/book'
 import { searchAll, type BookSearchItem, type UserSearchItem, type SearchType } from '@/api/search'
 import { cn } from '@/lib/utils'
-
-const RECENT_KEYWORDS_KEY = 'shelfeed-recent-keywords'
+import { useSearchStore, RECENT_KEYWORDS_KEY } from '@/store/searchStore'
 const MAX_RECENT_KEYWORDS = 10
 const ALL_TAB_PREVIEW_COUNT = 3
 
@@ -98,39 +97,45 @@ export default function BookSearchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [recentKeywords, setRecentKeywords] = useState<string[]>(() => loadRecentKeywords())
-  const initialQuery = searchParams.get('q') ?? ''
-  const initialTab = (() => {
-    const t = searchParams.get('tab')
-    return isSearchType(t) ? t : 'all'
-  })()
+
+  const cached = useRef(useSearchStore.getState()).current
+  const urlQuery = searchParams.get('q')
+  const urlTabRaw = searchParams.get('tab')
+  const urlTab = isSearchType(urlTabRaw) ? urlTabRaw : null
+  const hasUrlParams = urlQuery !== null || urlTab !== null
+  const hasCache = cached.query.length > 0
+  const restoredFromCache = useRef(hasCache && !hasUrlParams)
+
+  const initialQuery = urlQuery ?? (hasCache ? cached.query : '')
+  const initialTab: SearchType = urlTab ?? (hasCache ? cached.activeTab : 'all')
 
   const [searchQuery, setSearchQuery] = useState(initialQuery)
   const [activeTab, setActiveTab] = useState<SearchType>(initialTab)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
 
   // 도서 탭 (searchBooks 응답) — 백엔드가 page 기반 페이지네이션으로 변경됨
-  const [bookResults, setBookResults] = useState<BookSummary[]>([])
-  const [bookNextPage, setBookNextPage] = useState<number | null>(null)
-  const [bookHasNext, setBookHasNext] = useState(false)
+  const [bookResults, setBookResults] = useState<BookSummary[]>(cached.bookResults)
+  const [bookNextPage, setBookNextPage] = useState<number | null>(cached.bookNextPage)
+  const [bookHasNext, setBookHasNext] = useState(cached.bookHasNext)
   const [isBookLoading, setIsBookLoading] = useState(false)
   const [isBookLoadingMore, setIsBookLoadingMore] = useState(false)
   const [bookErrorMessage, setBookErrorMessage] = useState<string | null>(null)
   const [bookLoadMoreError, setBookLoadMoreError] = useState<string | null>(null)
 
   // 유저 탭 (searchAll type=user 응답)
-  const [userResults, setUserResults] = useState<UserSearchItem[]>([])
-  const [userNextCursor, setUserNextCursor] = useState<number | null>(null)
-  const [userHasNext, setUserHasNext] = useState(false)
+  const [userResults, setUserResults] = useState<UserSearchItem[]>(cached.userResults)
+  const [userNextCursor, setUserNextCursor] = useState<number | null>(cached.userNextCursor)
+  const [userHasNext, setUserHasNext] = useState(cached.userHasNext)
   const [isUserLoading, setIsUserLoading] = useState(false)
   const [isUserLoadingMore, setIsUserLoadingMore] = useState(false)
   const [userErrorMessage, setUserErrorMessage] = useState<string | null>(null)
   const [userLoadMoreError, setUserLoadMoreError] = useState<string | null>(null)
 
   // 전체 탭 (searchAll type=all 응답 — 미리보기용, 페이징 없음)
-  const [allBooks, setAllBooks] = useState<BookSearchItem[]>([])
-  const [allUsers, setAllUsers] = useState<UserSearchItem[]>([])
-  const [allBooksHasMore, setAllBooksHasMore] = useState(false)
-  const [allUsersHasMore, setAllUsersHasMore] = useState(false)
+  const [allBooks, setAllBooks] = useState<BookSearchItem[]>(cached.allBooks)
+  const [allUsers, setAllUsers] = useState<UserSearchItem[]>(cached.allUsers)
+  const [allBooksHasMore, setAllBooksHasMore] = useState(cached.allBooksHasMore)
+  const [allUsersHasMore, setAllUsersHasMore] = useState(cached.allUsersHasMore)
   const [isAllLoading, setIsAllLoading] = useState(false)
   const [allErrorMessage, setAllErrorMessage] = useState<string | null>(null)
 
@@ -176,6 +181,41 @@ export default function BookSearchPage() {
     activeTab,
   }
 
+  const searchCacheRef = useRef({
+    query: searchQuery,
+    activeTab,
+    bookResults,
+    bookNextPage,
+    bookHasNext,
+    userResults,
+    userNextCursor,
+    userHasNext,
+    allBooks,
+    allUsers,
+    allBooksHasMore,
+    allUsersHasMore,
+  })
+  searchCacheRef.current = {
+    query: searchQuery,
+    activeTab,
+    bookResults,
+    bookNextPage,
+    bookHasNext,
+    userResults,
+    userNextCursor,
+    userHasNext,
+    allBooks,
+    allUsers,
+    allBooksHasMore,
+    allUsersHasMore,
+  }
+
+  useEffect(() => {
+    return () => {
+      useSearchStore.setState(searchCacheRef.current)
+    }
+  }, [])
+
   // ISBN13이면 자동 도서 탭으로 강제 — 바코드 스캐너 결과/사용자 직접 입력 모두 커버
   useEffect(() => {
     if (isIsbnMode && activeTab !== 'book') {
@@ -192,6 +232,7 @@ export default function BookSearchPage() {
   // deps에 넣으면 무한 루프가 발생. toString()으로 값 기반 비교.
   const searchParamsString = searchParams.toString()
   useEffect(() => {
+    if (restoredFromCache.current) return
     const urlQuery = searchParams.get('q') ?? ''
     const urlTabRaw = searchParams.get('tab')
     const urlTab: SearchType = isSearchType(urlTabRaw) ? urlTabRaw : 'all'
@@ -229,6 +270,7 @@ export default function BookSearchPage() {
 
   // 도서 탭 첫 페이지 fetch (검색어 변경 시 debounce)
   useEffect(() => {
+    if (restoredFromCache.current) return
     setIsBookLoadingMore(false)
     setBookLoadMoreError(null)
     bookMoreControllerRef.current?.abort()
@@ -290,6 +332,7 @@ export default function BookSearchPage() {
 
   // 유저 탭 첫 페이지 fetch
   useEffect(() => {
+    if (restoredFromCache.current) return
     setIsUserLoadingMore(false)
     setUserLoadMoreError(null)
     userMoreControllerRef.current?.abort()
@@ -344,6 +387,7 @@ export default function BookSearchPage() {
 
   // 전체 탭 fetch — books/users 두 섹션 미리보기, 페이징 없음
   useEffect(() => {
+    if (restoredFromCache.current) return
     if (!trimmedQuery || activeTab !== 'all') {
       if (!trimmedQuery) {
         setAllBooks([])
@@ -395,6 +439,12 @@ export default function BookSearchPage() {
       controller.abort()
     }
   }, [trimmedQuery, activeTab])
+
+  // 반드시 restoredFromCache를 참조하는 모든 effect 뒤에 선언할 것.
+  // React는 useEffect를 선언 순서대로 실행하므로 위 4개 effect가 먼저 skip된 후 플래그 해제.
+  useEffect(() => {
+    restoredFromCache.current = false
+  }, [])
 
   /**
    * 도서 탭 다음 페이지 로딩. observer 콜백과 retry 버튼이 공유 호출.

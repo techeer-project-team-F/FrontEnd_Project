@@ -5,6 +5,7 @@ import BottomNav from '@/components/layout/BottomNav'
 import { logout, resendEmailCode } from '@/api/auth'
 import { getSettings, updateSettings, type SettingsResponse } from '@/api/member'
 import { useAuthStore } from '@/store/authStore'
+import { clearSearchCache } from '@/store/searchStore'
 import type { EmailVerifyLocationState } from '@/pages/EmailVerificationPage'
 
 function Toggle({
@@ -185,6 +186,7 @@ export default function SettingsPage() {
       // 로그아웃 API 실패는 비치명적 — finally에서 로컬 세션 정리 보장
     } finally {
       clearAuth()
+      clearSearchCache()
       navigate('/login', { replace: true })
     }
   }
