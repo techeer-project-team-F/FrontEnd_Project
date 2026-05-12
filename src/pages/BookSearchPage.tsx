@@ -983,8 +983,8 @@ function AllTabContent({
 
   const previewBooks = books.slice(0, previewCount)
   const previewUsers = users.slice(0, previewCount)
-  const showBookMoreButton = booksHasMore || books.length > previewCount
-  const showUserMoreButton = usersHasMore || users.length > previewCount
+  const showBookMoreButton = booksHasMore || books.length >= previewCount
+  const showUserMoreButton = usersHasMore || users.length >= previewCount
 
   return (
     <div className="flex flex-col gap-4 py-2">
