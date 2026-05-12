@@ -38,6 +38,13 @@ const initialState: SearchState = {
 
 export const useSearchStore = create<SearchState>()(() => ({ ...initialState }))
 
+export const RECENT_KEYWORDS_KEY = 'shelfeed-recent-keywords'
+
 export function clearSearchCache() {
   useSearchStore.setState(initialState)
+  try {
+    localStorage.removeItem(RECENT_KEYWORDS_KEY)
+  } catch {
+    // private 모드 등 localStorage 접근 불가 시 무시
+  }
 }

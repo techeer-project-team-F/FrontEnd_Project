@@ -7,9 +7,7 @@ import UserSearchCard from '@/components/common/UserSearchCard'
 import { getBookByIsbn, searchBooks, type BookDetail, type BookSummary } from '@/api/book'
 import { searchAll, type BookSearchItem, type UserSearchItem, type SearchType } from '@/api/search'
 import { cn } from '@/lib/utils'
-import { useSearchStore } from '@/store/searchStore'
-
-const RECENT_KEYWORDS_KEY = 'shelfeed-recent-keywords'
+import { useSearchStore, RECENT_KEYWORDS_KEY } from '@/store/searchStore'
 const MAX_RECENT_KEYWORDS = 10
 const ALL_TAB_PREVIEW_COUNT = 3
 
@@ -101,16 +99,15 @@ export default function BookSearchPage() {
   const [recentKeywords, setRecentKeywords] = useState<string[]>(() => loadRecentKeywords())
 
   const cached = useRef(useSearchStore.getState()).current
+  const urlQuery = searchParams.get('q')
+  const urlTabRaw = searchParams.get('tab')
+  const urlTab = isSearchType(urlTabRaw) ? urlTabRaw : null
+  const hasUrlParams = urlQuery !== null || urlTab !== null
   const hasCache = cached.query.length > 0
-  const restoredFromCache = useRef(hasCache)
+  const restoredFromCache = useRef(hasCache && !hasUrlParams)
 
-  const initialQuery = hasCache ? cached.query : (searchParams.get('q') ?? '')
-  const initialTab = hasCache
-    ? cached.activeTab
-    : (() => {
-        const t = searchParams.get('tab')
-        return isSearchType(t) ? t : 'all'
-      })()
+  const initialQuery = urlQuery ?? (hasCache ? cached.query : '')
+  const initialTab: SearchType = urlTab ?? (hasCache ? cached.activeTab : 'all')
 
   const [searchQuery, setSearchQuery] = useState(initialQuery)
   const [activeTab, setActiveTab] = useState<SearchType>(initialTab)
