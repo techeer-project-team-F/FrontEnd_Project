@@ -224,15 +224,13 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
     </div>
   )
 
-  const navigate = useNavigate()
-
   return (
     <div
       role="link"
       tabIndex={0}
       onClick={() => navigate(`/review/${review.id}`)}
       onKeyDown={e => {
-        if (e.key === 'Enter') navigate(`/review/${review.id}`)
+        if (e.key === 'Enter' && e.currentTarget === e.target) navigate(`/review/${review.id}`)
       }}
       className={cn(cardClassName, 'cursor-pointer')}
     >
