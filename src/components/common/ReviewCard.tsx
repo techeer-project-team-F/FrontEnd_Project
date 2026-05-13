@@ -97,7 +97,11 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
     <div className="p-4">
       {/* User Header */}
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <Link
+          to={`/user/${review.author.id}`}
+          onClick={e => e.stopPropagation()}
+          className="flex items-center gap-3"
+        >
           <div className="size-10 overflow-hidden rounded-full border border-primary/10 bg-primary/10">
             {review.author.profileImageUrl && (
               <img
@@ -111,7 +115,7 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
             <p className="text-sm font-bold">{review.author.nickname}</p>
             <p className="text-xs text-muted-foreground">{formatRelativeTime(review.createdAt)}</p>
           </div>
-        </div>
+        </Link>
         {status && (
           <span
             className={cn(
@@ -220,9 +224,19 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
     </div>
   )
 
+  const navigate = useNavigate()
+
   return (
-    <Link to={`/review/${review.id}`} className={cardClassName}>
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => navigate(`/review/${review.id}`)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') navigate(`/review/${review.id}`)
+      }}
+      className={cn(cardClassName, 'cursor-pointer')}
+    >
       {inner}
-    </Link>
+    </div>
   )
 }
