@@ -11,6 +11,7 @@ import {
   type CommentItem,
   type ReplyItem,
 } from '@/api/comment'
+import ReportDialog from '@/components/common/ReportDialog'
 
 interface CommentSectionProps {
   reviewId: number
@@ -56,6 +57,7 @@ export default function CommentSection({
   const [isEditing, setIsEditing] = useState(false)
 
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [reportTargetId, setReportTargetId] = useState<number | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
@@ -365,6 +367,7 @@ export default function CommentSection({
                   onEdit={startEdit}
                   onDelete={handleDelete}
                   onToggleLike={handleToggleLike}
+                  onReport={id => setReportTargetId(id)}
                 />
                 {comment.replies.length > 0 && (
                   <div className="ml-10 border-l-2 border-primary/10 pl-3">
@@ -377,6 +380,7 @@ export default function CommentSection({
                         onEdit={startEdit}
                         onDelete={handleDelete}
                         onToggleLike={handleToggleLike}
+                        onReport={id => setReportTargetId(id)}
                       />
                     ))}
                   </div>
@@ -494,6 +498,17 @@ export default function CommentSection({
           )}
         </section>
       )}
+
+      {reportTargetId != null && (
+        <ReportDialog
+          open
+          onOpenChange={open => {
+            if (!open) setReportTargetId(null)
+          }}
+          targetType="COMMENT"
+          targetId={reportTargetId}
+        />
+      )}
     </>
   )
 }
@@ -509,6 +524,7 @@ function CommentRow({
   onEdit,
   onDelete,
   onToggleLike,
+  onReport,
 }: {
   comment: CommentItem | ReplyItem
   parentCommentId: number | null
@@ -522,6 +538,7 @@ function CommentRow({
     isLiked: boolean,
     likeCount: number
   ) => void
+  onReport: (commentId: number) => void
 }) {
   if (comment.isDeleted) {
     return <div className="py-3 text-sm text-muted-foreground/50 italic">삭제된 댓글입니다.</div>
@@ -625,6 +642,17 @@ function CommentRow({
                   삭제
                 </button>
               </>
+            )}
+
+            {/* 신고 — 타인 댓글만 */}
+            {!comment.isMine && comment.user && (
+              <button
+                type="button"
+                onClick={() => onReport(comment.commentId)}
+                className="hover:text-destructive"
+              >
+                신고
+              </button>
             )}
           </div>
         </div>

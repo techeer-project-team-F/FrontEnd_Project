@@ -5,6 +5,7 @@ import { cn, formatRelativeTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import type { ReadingStatus } from '@/api/library'
 import StarRating from './StarRating'
+import ReportDialog from './ReportDialog'
 
 export interface ReviewCardData {
   id: number
@@ -45,6 +46,7 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
   const currentUserId = useAuthStore(state => state.user?.id)
   const isMyReview = currentUserId != null && review.author.id === currentUserId
 
+  const [isReportOpen, setIsReportOpen] = useState(false)
   const [spoilerRevealed, setSpoilerRevealed] = useState(false)
   const [liked, setLiked] = useState(review.isLiked)
   const [likeCount, setLikeCount] = useState(review.likeCount)
@@ -116,18 +118,34 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
             <p className="text-xs text-muted-foreground">{formatRelativeTime(review.createdAt)}</p>
           </div>
         </Link>
-        {status && (
-          <span
-            className={cn(
-              'rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider',
-              status.variant === 'solid'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-primary/10 text-primary'
-            )}
-          >
-            {status.text}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {status && (
+            <span
+              className={cn(
+                'rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider',
+                status.variant === 'solid'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-primary/10 text-primary'
+              )}
+            >
+              {status.text}
+            </span>
+          )}
+          {!isMyReview && (
+            <button
+              type="button"
+              onClick={e => {
+                e.preventDefault()
+                e.stopPropagation()
+                setIsReportOpen(true)
+              }}
+              aria-label="신고"
+              className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+            >
+              <span className="material-symbols-outlined text-[18px]">more_vert</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Book Info */}
@@ -225,16 +243,24 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
   )
 
   return (
-    <div
-      role="link"
-      tabIndex={0}
-      onClick={() => navigate(`/review/${review.id}`)}
-      onKeyDown={e => {
-        if (e.key === 'Enter' && e.currentTarget === e.target) navigate(`/review/${review.id}`)
-      }}
-      className={cn(cardClassName, 'cursor-pointer')}
-    >
-      {inner}
-    </div>
+    <>
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={() => navigate(`/review/${review.id}`)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && e.currentTarget === e.target) navigate(`/review/${review.id}`)
+        }}
+        className={cn(cardClassName, 'cursor-pointer')}
+      >
+        {inner}
+      </div>
+      <ReportDialog
+        open={isReportOpen}
+        onOpenChange={setIsReportOpen}
+        targetType="REVIEW"
+        targetId={review.id}
+      />
+    </>
   )
 }
