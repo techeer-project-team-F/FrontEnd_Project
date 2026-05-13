@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { cn } from '@/lib/utils'
-import { getFollowingFeed, type FeedItem } from '@/api/feed'
+import { getFollowingFeed, getRecommendFeed, type FeedItem, type RecommendItem } from '@/api/feed'
 import { getUnreadNotificationCount } from '@/api/notification'
 import BottomNav from '@/components/layout/BottomNav'
 import PopupBanner from '@/components/common/PopupBanner'
@@ -38,15 +38,42 @@ function toReviewCardData(item: FeedItem): ReviewCardData {
 }
 
 /**
+ * 백엔드 `RecommendItem` 응답을 `ReviewCardData`로 매핑한다.
+ * `FeedItem`과 달리 feedId 래퍼 없이 리뷰 필드가 최상위에 직접 노출.
+ */
+function recommendToCard(item: RecommendItem): ReviewCardData {
+  return {
+    id: item.reviewId,
+    content: item.content,
+    book: {
+      title: item.book.title,
+      author: item.book.author,
+      coverImageUrl: item.book.coverImageUrl ?? '',
+    },
+    author: {
+      id: item.user.userId,
+      nickname: item.user.nickname,
+      profileImageUrl: item.user.profileImageUrl ?? undefined,
+    },
+    likeCount: item.likeCount,
+    isLiked: item.isLiked,
+    createdAt: item.createdAt,
+    rating: item.rating,
+    hasSpoiler: item.isSpoiler,
+    commentCount: item.commentCount,
+  }
+}
+
+/**
  * 홈 피드 페이지.
  *
  * - 팔로잉 탭: 사용자가 팔로우한 유저들의 감상을 cursor 기반으로 페이지네이션.
  *   `IntersectionObserver`로 sentinel을 감지하여 무한스크롤로 자연스럽게 다음 페이지 로딩.
- * - 추천 탭: 백엔드 미구현으로 placeholder만 표시. 탭 전환 시 in-flight 요청을 즉시
- *   abort하고 상태를 초기화한다.
+ * - 추천 탭: 장르 기반·소셜·인기 하이브리드 추천 알고리즘의 감상을 복합 커서
+ *   (cursorLike + cursorId)로 페이지네이션. sentinel/observer는 팔로잉 탭과 공유.
  *
  * **데이터 흐름**:
- * 1. 마운트 또는 탭 전환 시 첫 페이지(`getFollowingFeed({ cursor: null })`) 요청
+ * 1. 마운트 또는 탭 전환 시 활성 탭 API(팔로잉: `getFollowingFeed`, 추천: `getRecommendFeed`)로 첫 페이지 요청
  * 2. sentinel이 viewport 200px 안으로 들어오면 다음 페이지 요청
  * 3. 응답 도중 탭이 바뀌면 stale guard로 결과 폐기
  *
@@ -71,6 +98,8 @@ export default function HomeFeedPage() {
 
   const [items, setItems] = useState<ReviewCardData[]>([])
   const [nextCursor, setNextCursor] = useState<number | null>(null)
+  const [nextCursorId, setNextCursorId] = useState<number | null>(null)
+  const [nextCursorLike, setNextCursorLike] = useState<number | null>(null)
   const [hasNext, setHasNext] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -85,6 +114,8 @@ export default function HomeFeedPage() {
     isLoading,
     isLoadingMore,
     nextCursor,
+    nextCursorId,
+    nextCursorLike,
     activeTab,
     loadMoreError,
   })
@@ -93,39 +124,50 @@ export default function HomeFeedPage() {
     isLoading,
     isLoadingMore,
     nextCursor,
+    nextCursorId,
+    nextCursorLike,
     activeTab,
     loadMoreError,
   }
 
-  // 초기 로딩 + 탭 변경 시 재요청. 'recommend' 탭은 백엔드 미구현이므로 placeholder만 표시 (fetch 스킵).
+  // 초기 로딩 + 탭 변경 시 재요청.
   useEffect(() => {
     setIsLoadingMore(false)
     setLoadMoreError(null)
     moreControllerRef.current?.abort()
     setItems([])
     setNextCursor(null)
+    setNextCursorId(null)
+    setNextCursorLike(null)
     setHasNext(false)
     setErrorMessage(null)
-
-    if (activeTab !== 'following') {
-      setIsLoading(false)
-      return
-    }
 
     const controller = new AbortController()
     setIsLoading(true)
     ;(async () => {
       try {
-        const response = await getFollowingFeed({
-          cursor: null,
-          signal: controller.signal,
-        })
-        if (controller.signal.aborted) return
-        setItems(response.content.map(toReviewCardData))
-        setNextCursor(response.nextCursor)
-        setHasNext(response.hasNext)
+        if (activeTab === 'following') {
+          const response = await getFollowingFeed({
+            cursor: null,
+            signal: controller.signal,
+          })
+          if (controller.signal.aborted) return
+          setItems(response.content.map(toReviewCardData))
+          setNextCursor(response.nextCursor)
+          setHasNext(response.hasNext)
+        } else {
+          const response = await getRecommendFeed({
+            cursorLike: null,
+            cursorId: null,
+            signal: controller.signal,
+          })
+          if (controller.signal.aborted) return
+          setItems(response.content.map(recommendToCard))
+          setNextCursorId(response.nextCursorId)
+          setNextCursorLike(response.nextCursorLike)
+          setHasNext(response.hasNext)
+        }
       } catch (error) {
-        // normalizeAxiosError가 cancel은 rethrow하므로 여기서 분기 필수
         if (axios.isCancel(error) || controller.signal.aborted) return
         setErrorMessage(error instanceof Error ? error.message : '피드를 불러오지 못했습니다.')
       } finally {
@@ -183,21 +225,15 @@ export default function HomeFeedPage() {
   }, [])
 
   /**
-   * 다음 페이지를 cursor 기반으로 추가 로딩한다.
+   * 다음 페이지를 추가 로딩한다. activeTab에 따라 팔로잉/추천 API를 분기 호출.
    *
-   * - `stateRef`에서 최신 `nextCursor`/`hasNext`/탭 상태를 읽어 stale closure를 회피
-   * - 진행 중인 이전 추가 로딩 요청은 새 `AbortController`로 즉시 취소
-   * - 응답이 도착했을 때 사용자가 이미 다른 탭으로 이동했다면 결과 폐기
-   * - cancel은 `_helpers.ts`의 `normalizeAxiosError`가 rethrow하므로 `axios.isCancel`로 분기
-   *
-   * @remarks observer 콜백과 retry 버튼이 공유 호출하므로 useCallback으로 안정화.
-   * deps를 비워두는 이유는 stateRef로 모든 최신 상태에 접근하기 때문.
+   * `stateRef`에서 최신 상태를 읽어 stale closure 회피. sentinel observer와
+   * retry 버튼이 공유 호출하므로 useCallback으로 안정화.
    */
   const fetchMore = useCallback(async () => {
     const s = stateRef.current
-    if (s.activeTab !== 'following') return
     if (s.isLoadingMore || s.isLoading || !s.hasNext) return
-    const requestedCursor = s.nextCursor
+    const tab = s.activeTab
 
     moreControllerRef.current?.abort()
     const controller = new AbortController()
@@ -206,19 +242,32 @@ export default function HomeFeedPage() {
     setIsLoadingMore(true)
     setLoadMoreError(null)
     try {
-      const response = await getFollowingFeed({
-        cursor: requestedCursor,
-        signal: controller.signal,
-      })
-      if (controller.signal.aborted) return
-      // 도중에 탭이 바뀌었으면 응답 버림
-      if (stateRef.current.activeTab !== 'following') return
-      setItems(prev => [...prev, ...response.content.map(toReviewCardData)])
-      setNextCursor(response.nextCursor)
-      setHasNext(response.hasNext)
+      if (tab === 'following') {
+        const response = await getFollowingFeed({
+          cursor: s.nextCursor,
+          signal: controller.signal,
+        })
+        if (controller.signal.aborted) return
+        if (stateRef.current.activeTab !== tab) return
+        setItems(prev => [...prev, ...response.content.map(toReviewCardData)])
+        setNextCursor(response.nextCursor)
+        setHasNext(response.hasNext)
+      } else {
+        const response = await getRecommendFeed({
+          cursorLike: s.nextCursorLike,
+          cursorId: s.nextCursorId,
+          signal: controller.signal,
+        })
+        if (controller.signal.aborted) return
+        if (stateRef.current.activeTab !== tab) return
+        setItems(prev => [...prev, ...response.content.map(recommendToCard)])
+        setNextCursorId(response.nextCursorId)
+        setNextCursorLike(response.nextCursorLike)
+        setHasNext(response.hasNext)
+      }
     } catch (error) {
       if (axios.isCancel(error) || controller.signal.aborted) return
-      if (stateRef.current.activeTab !== 'following') return
+      if (stateRef.current.activeTab !== tab) return
       setLoadMoreError(error instanceof Error ? error.message : '추가 로딩에 실패했습니다.')
     } finally {
       if (!controller.signal.aborted) setIsLoadingMore(false)
@@ -340,83 +389,73 @@ export default function HomeFeedPage() {
 
       {/* Feed */}
       <main className="flex-1 overflow-y-auto pb-24">
-        {activeTab === 'following' ? (
-          <>
-            {isLoading && items.length === 0 && (
-              <p
-                role="status"
-                aria-busy="true"
-                className="py-10 text-center text-sm text-muted-foreground"
-              >
-                불러오는 중...
-              </p>
-            )}
+        {isLoading && items.length === 0 && (
+          <p
+            role="status"
+            aria-busy="true"
+            className="py-10 text-center text-sm text-muted-foreground"
+          >
+            불러오는 중...
+          </p>
+        )}
 
-            {!isLoading && errorMessage && (
-              <p role="alert" className="py-10 text-center text-sm text-destructive">
-                {errorMessage}
-              </p>
-            )}
+        {!isLoading && errorMessage && (
+          <p role="alert" className="py-10 text-center text-sm text-destructive">
+            {errorMessage}
+          </p>
+        )}
 
-            {!isLoading && !errorMessage && items.length === 0 && (
-              <div className="flex flex-col items-center justify-center gap-3 py-20">
-                <span className="material-symbols-outlined text-5xl text-muted-foreground/30">
-                  group
-                </span>
-                <p className="text-sm text-muted-foreground">
-                  팔로우한 사용자의 감상이 아직 없어요.
-                </p>
-              </div>
-            )}
-
-            {items.map(memo => (
-              <div key={memo.id} className="p-4 pt-4 first:pt-4 [&:not(:first-child)]:pt-0">
-                <ReviewCard review={memo} />
-              </div>
-            ))}
-
-            {items.length > 0 && (
-              <>
-                {/* hasNext가 false면 sentinel 자체를 안 띄워 불필요한 observer 부착 방지 */}
-                {hasNext && <div ref={sentinelRef} className="h-10" aria-hidden="true" />}
-
-                {isLoadingMore && (
-                  <p className="py-4 text-center text-xs text-muted-foreground">
-                    더 불러오는 중...
-                  </p>
-                )}
-
-                {loadMoreError && !isLoadingMore && (
-                  <div className="flex flex-col items-center gap-2 py-4">
-                    <p role="alert" className="text-sm text-destructive">
-                      {loadMoreError}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={retryLoadMore}
-                      className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20"
-                    >
-                      다시 불러오기
-                    </button>
-                  </div>
-                )}
-
-                {!hasNext && !isLoadingMore && !loadMoreError && (
-                  <p className="py-4 text-center text-xs text-muted-foreground/50">
-                    모든 감상을 확인했습니다
-                  </p>
-                )}
-              </>
-            )}
-          </>
-        ) : (
-          // TODO(추천 피드 백엔드 구현 시 작업): 현재는 placeholder 유지
+        {!isLoading && !errorMessage && items.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-3 py-20">
             <span className="material-symbols-outlined text-5xl text-muted-foreground/30">
-              auto_awesome
+              {activeTab === 'following' ? 'group' : 'auto_awesome'}
             </span>
-            <p className="text-sm text-muted-foreground">추천 감상이 곧 제공됩니다</p>
+            <p className="text-sm text-muted-foreground">
+              {activeTab === 'following'
+                ? '팔로우한 사용자의 감상이 아직 없어요.'
+                : '추천 감상이 아직 없어요.'}
+            </p>
           </div>
+        )}
+
+        {items.map(memo => (
+          <div
+            key={`${activeTab}-${memo.id}`}
+            className="p-4 pt-4 first:pt-4 [&:not(:first-child)]:pt-0"
+          >
+            <ReviewCard review={memo} />
+          </div>
+        ))}
+
+        {items.length > 0 && (
+          <>
+            {hasNext && <div ref={sentinelRef} className="h-10" aria-hidden="true" />}
+
+            {isLoadingMore && (
+              <p className="py-4 text-center text-xs text-muted-foreground">더 불러오는 중...</p>
+            )}
+
+            {loadMoreError && !isLoadingMore && (
+              <div className="flex flex-col items-center gap-2 py-4">
+                <p role="alert" className="text-sm text-destructive">
+                  {loadMoreError}
+                </p>
+                <button
+                  type="button"
+                  onClick={retryLoadMore}
+                  className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20"
+                >
+                  다시 불러오기
+                </button>
+              </div>
+            )}
+
+            {!hasNext && !isLoadingMore && !loadMoreError && (
+              <p className="py-4 text-center text-xs text-muted-foreground/50">
+                모든 감상을 확인했습니다
+              </p>
+            )}
+          </>
         )}
       </main>
 
