@@ -159,6 +159,7 @@ export default function CommentSection({
         isLiked: false,
         isDeleted: false,
         isMine: true,
+        isEdited: false,
         createdAt: result.createdAt,
       }
 
@@ -178,6 +179,7 @@ export default function CommentSection({
           isLiked: false,
           isDeleted: false,
           isMine: true,
+          isEdited: false,
           createdAt: result.createdAt,
           replies: [],
         }
@@ -204,12 +206,14 @@ export default function CommentSection({
       setComments(prev =>
         prev.map(c => {
           if (c.commentId === editTarget.commentId) {
-            return { ...c, content: result.content }
+            return { ...c, content: result.content, isEdited: true }
           }
           return {
             ...c,
             replies: c.replies.map(r =>
-              r.commentId === editTarget.commentId ? { ...r, content: result.content } : r
+              r.commentId === editTarget.commentId
+                ? { ...r, content: result.content, isEdited: true }
+                : r
             ),
           }
         })
@@ -549,6 +553,7 @@ function CommentRow({
             <span className="text-sm font-bold">{comment.user?.nickname ?? '알 수 없음'}</span>
             <span className="text-xs text-muted-foreground">
               {formatRelativeTime(comment.createdAt)}
+              {comment.isEdited && ' (수정됨)'}
             </span>
           </div>
 
