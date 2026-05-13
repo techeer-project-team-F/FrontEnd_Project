@@ -22,6 +22,7 @@ export interface ReplyItem {
   isLiked: boolean
   isDeleted: boolean
   isMine: boolean
+  isEdited: boolean
   createdAt: string
 }
 
@@ -40,6 +41,7 @@ export interface CommentItem {
   isLiked: boolean
   isDeleted: boolean
   isMine: boolean
+  isEdited: boolean
   createdAt: string
   replies: ReplyItem[]
 }
