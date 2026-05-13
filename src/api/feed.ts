@@ -1,5 +1,5 @@
 import apiClient from './client'
-import { ApiResponse, normalizeAxiosError } from './_helpers'
+import { ApiResponse, normalizeAxiosError, parseApiResponse } from './_helpers'
 
 export interface FeedReviewUser {
   userId: number
@@ -61,10 +61,7 @@ export async function getFollowingFeed({
       },
       signal,
     })
-    if (!data.data) {
-      throw new Error(data.message ?? '피드 응답이 올바르지 않습니다.')
-    }
-    return data.data
+    return parseApiResponse(data, '피드 응답이 올바르지 않습니다.')
   } catch (error) {
     throw normalizeAxiosError(error, '피드를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
   }
@@ -131,10 +128,7 @@ export async function getRecommendFeed({
         signal,
       }
     )
-    if (!data.data) {
-      throw new Error(data.message ?? '추천 피드 응답이 올바르지 않습니다.')
-    }
-    return data.data
+    return parseApiResponse(data, '추천 피드 응답이 올바르지 않습니다.')
   } catch (error) {
     throw normalizeAxiosError(error, '추천 피드를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
   }
