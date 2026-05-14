@@ -140,7 +140,7 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
                 setIsReportOpen(true)
               }}
               aria-label="신고"
-              className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+              className="flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
             >
               <span className="material-symbols-outlined text-[18px]">more_vert</span>
             </button>

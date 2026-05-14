@@ -32,7 +32,7 @@ export async function createReport(params: CreateReportParams): Promise<ReportRe
       targetType: params.targetType,
       targetId: params.targetId,
       reason: params.reason,
-      ...(params.description ? { description: params.description } : {}),
+      ...(params.description?.trim() ? { description: params.description.trim() } : {}),
     })
     return parseApiResponse(data, '신고 접수에 실패했습니다.')
   } catch (error) {

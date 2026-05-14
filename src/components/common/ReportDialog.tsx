@@ -131,6 +131,7 @@ export default function ReportDialog({
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
+              aria-label="신고 상세 사유 입력"
               placeholder="상세 사유를 입력해주세요"
               maxLength={200}
               className="min-h-[80px] w-full resize-none rounded-xl border border-border bg-card p-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
