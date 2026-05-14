@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import CommentSection from '@/components/comment/CommentSection'
+import ReportDialog from '@/components/common/ReportDialog'
 import { useAuthStore } from '@/store/authStore'
 
 const readingStatusLabel: Record<ReadingStatus, string> = {
@@ -47,6 +48,7 @@ export default function ReviewDetailPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null)
+  const [isReportOpen, setIsReportOpen] = useState(false)
 
   useEffect(() => {
     if (!Number.isFinite(reviewId)) {
@@ -184,7 +186,22 @@ export default function ReviewDetailPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <AppHeader title={review.book.title} showBack />
+      <AppHeader
+        title={review.book.title}
+        showBack
+        rightAction={
+          !isMyReview ? (
+            <button
+              type="button"
+              onClick={() => setIsReportOpen(true)}
+              aria-label="신고"
+              className="flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
+            >
+              <span className="material-symbols-outlined">more_vert</span>
+            </button>
+          ) : undefined
+        }
+      />
 
       <main className="flex-1 overflow-y-auto pb-24">
         {/* Book Card */}
@@ -405,6 +422,13 @@ export default function ReviewDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ReportDialog
+        open={isReportOpen}
+        onOpenChange={setIsReportOpen}
+        targetType="REVIEW"
+        targetId={review.reviewId}
+      />
 
       <BottomNav />
     </div>
