@@ -208,6 +208,7 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
           <button
             onClick={e => {
               e.preventDefault()
+              e.stopPropagation()
               toggleLike()
             }}
             disabled={isLiking}
@@ -231,6 +232,7 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
         <button
           onClick={e => {
             e.preventDefault()
+            e.stopPropagation()
             navigate(`/review/${review.id}#comments`)
           }}
           className="flex items-center gap-1.5 transition-colors hover:text-primary"

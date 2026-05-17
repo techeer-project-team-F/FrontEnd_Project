@@ -151,6 +151,10 @@ export default function BookSearchPage() {
   const bookMoreControllerRef = useRef<AbortController | null>(null)
   const userMoreControllerRef = useRef<AbortController | null>(null)
 
+  // Effect 2(state→URL)가 직접 URL을 바꿀 때 세우는 플래그.
+  // Effect 1(URL→state)은 이 플래그가 서있으면 setState를 건너뛰어 양방향 루프를 차단한다.
+  const isInternalNavRef = useRef(false)
+
   // observer 콜백에서 최신 state를 읽기 위한 ref (deps 폭주 방지)
   const stateRef = useRef({
     bookHasNext,
@@ -233,6 +237,11 @@ export default function BookSearchPage() {
   const searchParamsString = searchParams.toString()
   useEffect(() => {
     if (restoredFromCache.current) return
+    // Effect 2가 내부적으로 URL을 변경한 경우 state 동기화를 건너뛴다 (양방향 루프 방지).
+    if (isInternalNavRef.current) {
+      isInternalNavRef.current = false
+      return
+    }
     const urlQuery = searchParams.get('q') ?? ''
     const urlTabRaw = searchParams.get('tab')
     const urlTab: SearchType = isSearchType(urlTabRaw) ? urlTabRaw : 'all'
@@ -257,6 +266,7 @@ export default function BookSearchPage() {
       next.delete('tab')
     }
     if (next.toString() !== searchParams.toString()) {
+      isInternalNavRef.current = true
       setSearchParams(next, { replace: true })
     }
     // [code-review LOW fix] searchParams를 deps에 넣으면 setSearchParams →
