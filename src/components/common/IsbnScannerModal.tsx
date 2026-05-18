@@ -274,6 +274,7 @@ export default function IsbnScannerModal({
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
         if (!ctx) {
+          stopAll()
           setStatus('error')
           return
         }
@@ -388,7 +389,7 @@ export default function IsbnScannerModal({
 
   // 인식 실패 시 단계적 도움말 타이머
   useEffect(() => {
-    if (status !== 'running') {
+    if (!open || status !== 'running') {
       setTipIndex(-1)
       return
     }
@@ -398,7 +399,7 @@ export default function IsbnScannerModal({
       window.setTimeout(() => setTipIndex(2), 15000),
     ]
     return () => timers.forEach(t => window.clearTimeout(t))
-  }, [status])
+  }, [open, status])
 
   // 사용자가 드롭다운에서 카메라 변경
   const handleDeviceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -452,6 +453,7 @@ export default function IsbnScannerModal({
               type="button"
               onClick={handleTorchToggle}
               aria-label={torchOn ? '플래시 끄기' : '플래시 켜기'}
+              aria-pressed={torchOn}
               className={`flex size-10 items-center justify-center rounded-full transition-colors ${
                 torchOn ? 'bg-yellow-500/30 text-yellow-300' : 'text-white hover:bg-white/10'
               }`}
