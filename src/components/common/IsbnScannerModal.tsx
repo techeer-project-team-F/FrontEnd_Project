@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 const DEVICE_ID_KEY = 'shelfeed-scan-device-id'
+const SCAN_INTERVAL = 200
 
 type ScannerStatus =
   | 'initializing'
@@ -31,6 +32,53 @@ const STATUS_MESSAGES: Record<
   error: '카메라를 시작하지 못했습니다. 잠시 후 다시 시도해주세요.',
 }
 
+const SCAN_TIPS = [
+  { icon: 'crop_free', text: '바코드가 스캔 영역 안에 오도록 맞춰주세요' },
+  { icon: 'light_mode', text: '조명이 밝은 곳에서 시도해주세요' },
+  { icon: 'search', text: '바코드가 구겨지거나 가려지지 않았는지 확인해주세요' },
+] as const
+
+/**
+ * 가이드 박스의 CSS 위치를 비디오 프레임 좌표로 역변환한다.
+ *
+ * video 요소가 `object-fit: cover`를 사용하므로, 실제 비디오 프레임의 일부가
+ * 잘려서 표시된다. 화면상 가이드 박스 좌표를 원본 비디오 해상도 기준으로
+ * 변환하여 정확한 크롭 영역을 계산한다.
+ */
+function computeROI(video: HTMLVideoElement): { sx: number; sy: number; sw: number; sh: number } {
+  const vw = video.videoWidth
+  const vh = video.videoHeight
+  if (vw === 0 || vh === 0) return { sx: 0, sy: 0, sw: 0, sh: 0 }
+  const cw = video.clientWidth
+  const ch = video.clientHeight
+
+  const scale = Math.max(cw / vw, ch / vh)
+  const scaledW = vw * scale
+  const scaledH = vh * scale
+  const offsetX = (scaledW - cw) / 2
+  const offsetY = (scaledH - ch) / 2
+
+  // 가이드 박스 화면 좌표 (CSS와 동기화: inset-x-6 / sm:inset-x-1/4, aspect-[4/1])
+  const isWide = cw >= 640
+  const padX = isWide ? cw * 0.25 : 24
+  const boxW = cw - padX * 2
+  const boxH = boxW / 4
+  const boxX = padX
+  const boxY = (ch - boxH) / 2
+
+  const sx = Math.round((boxX + offsetX) / scale)
+  const sy = Math.round((boxY + offsetY) / scale)
+  const sw = Math.round(boxW / scale)
+  const sh = Math.round(boxH / scale)
+
+  return {
+    sx: Math.max(0, sx),
+    sy: Math.max(0, sy),
+    sw: Math.min(sw, vw - Math.max(0, sx)),
+    sh: Math.min(sh, vh - Math.max(0, sy)),
+  }
+}
+
 export default function IsbnScannerModal({
   open,
   onDetected,
@@ -39,23 +87,25 @@ export default function IsbnScannerModal({
 }: IsbnScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  // @zxing/browser v0.2 API: decodeFromVideoElement가 IScannerControls를 반환하고 stop()으로 정리
-  const controlsRef = useRef<{ stop: () => void } | null>(null)
   // ZXing이 stop() 직후 1~2 프레임 더 콜백을 호출할 수 있어, 첫 인식 후 후속 호출을 잠금으로 차단
   const detectedRef = useRef(false)
   // 첫 인식 → onDetected 사이의 시각 피드백 지연 타이머. 모달 닫힘 시 반드시 clear (다음 오픈에 stale fire 방지)
   const detectionTimerRef = useRef<number | null>(null)
-  // startStream의 await 진행 중에 cleanup이 끼어들면 이후 단계를 stale로 판정해 자기 산출물을 직접 정리.
-  // stopAll이 호출되면 토큰을 증가시켜 진행 중인 startStream이 자신의 결과를 버리도록 함.
+  // startStream의 await 진행 중에 cleanup이 끼어들면 이후 단계를 stale로 판정해 자기 산출물을 직접 정리
   const sessionRef = useRef(0)
+  const scanTimerRef = useRef<number | null>(null)
 
   const [status, setStatus] = useState<ScannerStatus>('initializing')
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null)
   const [flashFeedback, setFlashFeedback] = useState(false)
+  const [tipIndex, setTipIndex] = useState(-1)
+  const [torchAvailable, setTorchAvailable] = useState(false)
+  const [torchOn, setTorchOn] = useState(false)
+  const torchOnRef = useRef(false)
 
   // ZXing 콜백에 stable closure를 넘기기 위한 ref. 부모 리렌더로 onDetected가 새로 와도
-  // ZXing 내부 콜백은 항상 최신 핸들러를 호출 (stale closure 방지)
+  // 스캔 루프 콜백은 항상 최신 핸들러를 호출 (stale closure 방지)
   const onDetectedRef = useRef(onDetected)
   const validateRef = useRef(validate)
   useEffect(() => {
@@ -70,11 +120,16 @@ export default function IsbnScannerModal({
       window.clearTimeout(detectionTimerRef.current)
       detectionTimerRef.current = null
     }
-    controlsRef.current?.stop()
-    controlsRef.current = null
+    if (scanTimerRef.current != null) {
+      window.clearTimeout(scanTimerRef.current)
+      scanTimerRef.current = null
+    }
     streamRef.current?.getTracks().forEach(t => t.stop())
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
+    torchOnRef.current = false
+    setTorchOn(false)
+    setTorchAvailable(false)
   }, [])
 
   const handleDetected = useCallback(
@@ -85,6 +140,7 @@ export default function IsbnScannerModal({
       detectedRef.current = true
       setStatus('detected')
       setFlashFeedback(true)
+      setTipIndex(-1)
       navigator.vibrate?.(50)
       stopAll()
       // 시각 피드백을 위해 짧게 지연
@@ -95,6 +151,20 @@ export default function IsbnScannerModal({
     },
     [stopAll]
   )
+
+  const handleTorchToggle = useCallback(async () => {
+    const track = streamRef.current?.getVideoTracks()[0]
+    if (!track) return
+    try {
+      const { BrowserCodeReader } = await import('@zxing/browser')
+      const next = !torchOnRef.current
+      await BrowserCodeReader.mediaStreamSetTorch(track, next)
+      torchOnRef.current = next
+      setTorchOn(next)
+    } catch {
+      // 토치 제어 실패 — 무시
+    }
+  }, [])
 
   const startStream = useCallback(
     async (deviceId: string | null) => {
@@ -113,11 +183,18 @@ export default function IsbnScannerModal({
 
         const constraints: MediaStreamConstraints = {
           video: deviceId
-            ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            ? {
+                deviceId: { exact: deviceId },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                // @ts-expect-error focusMode는 TS 타입 미반영, ideal이므로 미지원 시 무시됨
+                focusMode: { ideal: 'continuous' },
+              }
             : {
                 facingMode: { ideal: 'environment' },
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                focusMode: { ideal: 'continuous' },
               },
         }
 
@@ -155,7 +232,6 @@ export default function IsbnScannerModal({
           return
         }
         video.srcObject = stream
-        // video.play()는 ZXing의 decodeFromVideoElement가 내부적으로 처리. 명시 호출 시 "already playing" 경고 발생
 
         // 권한 받은 직후 enumerate (라벨 포함)
         const all = await navigator.mediaDevices.enumerateDevices()
@@ -176,10 +252,16 @@ export default function IsbnScannerModal({
         }
 
         // ZXing lazy import로 메인 번들 영향 최소화
-        const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all(
-          [import('@zxing/browser'), import('@zxing/library')]
-        )
+        const [{ BrowserMultiFormatReader, BrowserCodeReader }, { BarcodeFormat, DecodeHintType }] =
+          await Promise.all([import('@zxing/browser'), import('@zxing/library')])
         if (isStale()) return
+
+        // 토치 지원 감지
+        try {
+          setTorchAvailable(BrowserCodeReader.mediaStreamIsTorchCompatible(stream))
+        } catch {
+          setTorchAvailable(false)
+        }
 
         // EAN-13만 타겟 (디폴트로 모든 포맷 시도하면 ISBN 바코드 인식이 느리고 자주 실패).
         // TRY_HARDER: 정확도 우선, 처리 시간 약간 증가 (실시간 스캔에는 충분)
@@ -188,22 +270,63 @@ export default function IsbnScannerModal({
         hints.set(DecodeHintType.TRY_HARDER, true)
         const reader = new BrowserMultiFormatReader(hints)
 
-        // v0.2 API: decodeFromVideoElement는 Promise<IScannerControls>를 반환. controls.stop()으로 정리
-        const controls = await reader.decodeFromVideoElement(video, result => {
-          if (!result) return
-          handleDetected(result.getText())
-        })
-        if (isStale()) {
-          controls.stop()
+        // 가이드 박스 영역만 크롭할 offscreen canvas
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          setStatus('error')
           return
         }
-        controlsRef.current = controls
+
+        // 이전에는 ZXing decodeFromVideoElement 내부에서 play()를 처리했으나 수동 루프에서는 명시 호출
+        await video.play()
+        if (isStale()) return
+
+        /**
+         * ROI 크롭 수동 디코딩 루프.
+         *
+         * 기존 `decodeFromVideoElement`는 전체 비디오 프레임을 디코딩하여
+         * 바코드 주변 노이즈(텍스트·이미지)가 인식률을 떨어뜨렸다.
+         * 가이드 박스 영역만 canvas에 크롭 후 `decodeFromCanvas`에 전달하여
+         * 디코딩 대상을 좁힌다.
+         */
+        let lastCanvasW = 0
+        let lastCanvasH = 0
+        const scanLoop = () => {
+          if (isStale() || detectedRef.current) return
+          try {
+            const { sx, sy, sw, sh } = computeROI(video)
+            if (sw > 0 && sh > 0) {
+              if (sw !== lastCanvasW || sh !== lastCanvasH) {
+                canvas.width = sw
+                canvas.height = sh
+                lastCanvasW = sw
+                lastCanvasH = sh
+              } else {
+                ctx.clearRect(0, 0, sw, sh)
+              }
+              ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
+              try {
+                const result = reader.decodeFromCanvas(canvas)
+                if (result) {
+                  handleDetected(result.getText())
+                  return
+                }
+              } catch {
+                // NotFoundException / ChecksumException / FormatException — 다음 프레임 재시도
+              }
+            }
+          } catch {
+            // video not ready 등 — 다음 프레임 재시도
+          }
+          scanTimerRef.current = window.setTimeout(scanLoop, SCAN_INTERVAL)
+        }
+        scanTimerRef.current = window.setTimeout(scanLoop, SCAN_INTERVAL)
 
         setStatus('running')
       } catch (error) {
         if (isStale()) return // stale 호출의 에러는 표시 안 함
-        // 실패 지점까지 할당됐을 수 있는 stream/video.srcObject/controls를 정리해 카메라 LED를 즉시 끔.
-        // stopAll은 idempotent — 아직 할당되지 않은 ref는 no-op
+        // 실패 지점까지 할당됐을 수 있는 stream/video.srcObject를 정리해 카메라 LED를 즉시 끔
         stopAll()
         if (!(error instanceof DOMException)) {
           setStatus('error')
@@ -263,6 +386,20 @@ export default function IsbnScannerModal({
     }
   }, [open])
 
+  // 인식 실패 시 단계적 도움말 타이머
+  useEffect(() => {
+    if (status !== 'running') {
+      setTipIndex(-1)
+      return
+    }
+    const timers = [
+      window.setTimeout(() => setTipIndex(0), 5000),
+      window.setTimeout(() => setTipIndex(1), 10000),
+      window.setTimeout(() => setTipIndex(2), 15000),
+    ]
+    return () => timers.forEach(t => window.clearTimeout(t))
+  }, [status])
+
   // 사용자가 드롭다운에서 카메라 변경
   const handleDeviceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value
@@ -289,6 +426,8 @@ export default function IsbnScannerModal({
   const selectableDevices = devices.filter(d => d.deviceId)
   const showDeviceSelect = selectableDevices.length >= 2 && status === 'running'
 
+  const currentTip = tipIndex >= 0 ? SCAN_TIPS[tipIndex] : null
+
   return (
     <div
       role="dialog"
@@ -307,22 +446,38 @@ export default function IsbnScannerModal({
           <span className="material-symbols-outlined">close</span>
         </button>
         <h2 className="flex-1 text-center text-base font-bold">ISBN 바코드 스캔</h2>
-        {showDeviceSelect ? (
-          <select
-            aria-label="카메라 선택"
-            value={activeDeviceId ?? ''}
-            onChange={handleDeviceChange}
-            className="max-w-[40vw] truncate rounded-md bg-white/10 px-2 py-1 text-xs text-white outline-none"
-          >
-            {selectableDevices.map((d, idx) => (
-              <option key={d.deviceId} value={d.deviceId} className="text-black">
-                {d.label || `카메라 ${idx + 1}`}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span className="size-10" aria-hidden="true" />
-        )}
+        <div className="flex items-center gap-2">
+          {torchAvailable && status === 'running' && (
+            <button
+              type="button"
+              onClick={handleTorchToggle}
+              aria-label={torchOn ? '플래시 끄기' : '플래시 켜기'}
+              className={`flex size-10 items-center justify-center rounded-full transition-colors ${
+                torchOn ? 'bg-yellow-500/30 text-yellow-300' : 'text-white hover:bg-white/10'
+              }`}
+            >
+              <span className="material-symbols-outlined">
+                {torchOn ? 'flashlight_on' : 'flashlight_off'}
+              </span>
+            </button>
+          )}
+          {showDeviceSelect ? (
+            <select
+              aria-label="카메라 선택"
+              value={activeDeviceId ?? ''}
+              onChange={handleDeviceChange}
+              className="max-w-[40vw] truncate rounded-md bg-white/10 px-2 py-1 text-xs text-white outline-none"
+            >
+              {selectableDevices.map((d, idx) => (
+                <option key={d.deviceId} value={d.deviceId} className="text-black">
+                  {d.label || `카메라 ${idx + 1}`}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="size-10" aria-hidden="true" />
+          )}
+        </div>
       </header>
 
       {/* Video / Error / Loading */}
@@ -354,9 +509,29 @@ export default function IsbnScannerModal({
                 {/* 스캔 라인 */}
                 <span className="absolute inset-x-2 top-0 h-0.5 animate-[scan_1.6s_ease-in-out_infinite] bg-red-500" />
               </div>
-              <p className="mt-6 text-center text-sm font-medium text-white/90">
-                책 뒷면 바코드를 스캔 영역에 맞춰주세요
-              </p>
+              {currentTip ? (
+                <div className="mt-4 animate-[tip-fade-in_0.3s_ease-out] text-center">
+                  <div className="mb-1 flex items-center justify-center gap-1.5">
+                    <span className="material-symbols-outlined text-base text-amber-400">
+                      {currentTip.icon}
+                    </span>
+                    <p className="text-sm font-medium text-amber-300">{currentTip.text}</p>
+                  </div>
+                  {tipIndex >= 2 && (
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="pointer-events-auto mt-3 rounded-xl bg-white/90 px-5 py-2.5 text-sm font-bold text-black transition-colors hover:bg-white"
+                    >
+                      직접 ISBN 입력하기
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-6 text-center text-sm font-medium text-white/90">
+                  책 뒷면 바코드를 스캔 영역에 맞춰주세요
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -402,7 +577,17 @@ export default function IsbnScannerModal({
       )}
 
       {/* keyframes는 인라인 style 태그로 — Tailwind 3.x animate-[...] 임의값 동작 보장 */}
-      <style>{`@keyframes scan { 0% { transform: translateY(0); opacity: 0.9; } 50% { transform: translateY(calc(100% - 4px)); opacity: 1; } 100% { transform: translateY(0); opacity: 0.9; } }`}</style>
+      <style>{`
+        @keyframes scan {
+          0% { transform: translateY(0); opacity: 0.9; }
+          50% { transform: translateY(calc(100% - 4px)); opacity: 1; }
+          100% { transform: translateY(0); opacity: 0.9; }
+        }
+        @keyframes tip-fade-in {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   )
 }
