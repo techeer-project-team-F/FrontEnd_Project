@@ -201,7 +201,20 @@ export default function MyProfilePage() {
           <div className="grid grid-cols-3 items-center px-4 py-3">
             <div />
             <div className="flex justify-center">
-              <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
+              <h1
+                role="link"
+                tabIndex={0}
+                onClick={() => navigate('/')}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    navigate('/')
+                  }
+                }}
+                className="cursor-pointer text-2xl font-bold tracking-tight text-primary transition-opacity hover:opacity-70"
+              >
+                Shelfeed
+              </h1>
             </div>
             <div />
           </div>
@@ -223,7 +236,20 @@ export default function MyProfilePage() {
           <div className="grid grid-cols-3 items-center px-4 py-3">
             <div />
             <div className="flex justify-center">
-              <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
+              <h1
+                role="link"
+                tabIndex={0}
+                onClick={() => navigate('/')}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    navigate('/')
+                  }
+                }}
+                className="cursor-pointer text-2xl font-bold tracking-tight text-primary transition-opacity hover:opacity-70"
+              >
+                Shelfeed
+              </h1>
             </div>
             <div />
           </div>
@@ -264,7 +290,20 @@ export default function MyProfilePage() {
           </div>
 
           <div className="flex justify-center">
-            <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
+            <h1
+              role="link"
+              tabIndex={0}
+              onClick={() => navigate('/')}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  navigate('/')
+                }
+              }}
+              className="cursor-pointer text-2xl font-bold tracking-tight text-primary transition-opacity hover:opacity-70"
+            >
+              Shelfeed
+            </h1>
           </div>
 
           <div className="flex justify-end">

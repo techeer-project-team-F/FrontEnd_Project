@@ -327,7 +327,20 @@ export default function HomeFeedPage() {
       <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="w-10" />
-          <h1 className="text-2xl font-bold tracking-tight text-primary">Shelfeed</h1>
+          <h1
+            role="link"
+            tabIndex={0}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }
+            }}
+            className="cursor-pointer text-2xl font-bold tracking-tight text-primary transition-opacity hover:opacity-70"
+          >
+            Shelfeed
+          </h1>
           <Link
             to="/notifications"
             aria-label={unreadCount > 0 ? `알림 (미읽음 ${unreadCount}개)` : '알림'}
