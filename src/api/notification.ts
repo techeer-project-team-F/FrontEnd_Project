@@ -106,8 +106,8 @@ export async function markNotificationAsRead(
 /**
  * 현재 사용자의 모든 미읽음 알림을 일괄 읽음 처리한다.
  *
- * 멱등 — 미읽음 0건이어도 200 반환. 페이지 이탈 시에도 호출이 완료되어야 하므로
- * AbortSignal을 받지 않는다 (fire-and-forget 용도).
+ * 멱등 — 미읽음 0건이어도 200 반환. 호출자가 fire-and-forget(`.catch(() => {})`)으로
+ * 사용할 수 있도록 설계되었으며, 개별 읽음 처리와 달리 AbortSignal을 받지 않는다.
  */
 export async function markAllNotificationsAsRead(): Promise<void> {
   try {
