@@ -9,8 +9,9 @@ import {
   unlikeReview,
   type ReviewDetail,
 } from '@/api/review'
-import { backendToFrontStatus, type ReadingStatus } from '@/api/library'
+import { addLibraryBook, backendToFrontStatus, type ReadingStatus } from '@/api/library'
 import AppHeader from '@/components/layout/AppHeader'
+import AddToLibrarySheet from '@/components/common/AddToLibrarySheet'
 import BottomNav from '@/components/layout/BottomNav'
 import {
   Dialog,
@@ -49,6 +50,8 @@ export default function ReviewDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null)
   const [isReportOpen, setIsReportOpen] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [savedStatus, setSavedStatus] = useState<ReadingStatus | null>(null)
 
   useEffect(() => {
     if (!Number.isFinite(reviewId)) {
@@ -169,6 +172,11 @@ export default function ReviewDetailPage() {
     } finally {
       setIsLiking(false)
     }
+  }
+
+  const handleSaveToLibrary = async (status: ReadingStatus) => {
+    await addLibraryBook(review.book.bookId, status)
+    setSavedStatus(status)
   }
 
   const handleDeleteReview = async () => {
@@ -364,6 +372,26 @@ export default function ReviewDetailPage() {
           </div>
         </section>
 
+        {!isMyReview && (
+          <section className="border-t border-border px-5 py-4">
+            {savedStatus ? (
+              <div className="flex items-center justify-center gap-2 rounded-xl bg-primary/5 py-3 text-sm font-semibold text-primary/70">
+                <span className="material-symbols-outlined text-[20px]">check_circle</span>
+                서재에 저장됨
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSheetOpen(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/20 bg-card py-3 text-sm font-bold text-primary transition-colors hover:bg-primary/5"
+              >
+                <span className="material-symbols-outlined text-[20px]">library_add</span>내 서재에
+                추가
+              </button>
+            )}
+          </section>
+        )}
+
         <div ref={commentSectionRef}>
           <CommentSection
             reviewId={review.reviewId}
@@ -429,6 +457,15 @@ export default function ReviewDetailPage() {
         targetType="REVIEW"
         targetId={review.reviewId}
       />
+
+      {!isMyReview && review && (
+        <AddToLibrarySheet
+          isOpen={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          onSave={handleSaveToLibrary}
+          bookId={String(review.book.bookId)}
+        />
+      )}
 
       <BottomNav />
     </div>

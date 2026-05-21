@@ -154,6 +154,10 @@ export default function BookDetailPage() {
     // 신규 추가 → POST. 응답의 libraryBookId를 로컬 book 상태에 반영해 다음 수정이 PATCH로 가도록 한다.
     const result = await addLibraryBook(book.bookId, status)
     if (!isMountedRef.current) return
+    if ('alreadyExists' in result) {
+      setSavedStatus(status)
+      return
+    }
     setSavedStatus(toFrontStatus(result.status) ?? status)
     setBook(prev => (prev ? { ...prev, myLibraryBookId: result.libraryBookId } : prev))
   }

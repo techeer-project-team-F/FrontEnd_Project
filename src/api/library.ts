@@ -1,3 +1,4 @@
+import axios from 'axios'
 import apiClient from './client'
 import { ApiResponse, normalizeAxiosError, parseApiResponse } from './_helpers'
 import type { BackendReadingStatus } from './book'
@@ -242,7 +243,7 @@ export async function getWisdomTower(signal?: AbortSignal): Promise<WisdomTowerR
 export async function addLibraryBook(
   bookId: number,
   status: ReadingStatus
-): Promise<LibraryBookAddResponse> {
+): Promise<LibraryBookAddResponse | { alreadyExists: true }> {
   try {
     const { data } = await apiClient.post<ApiResponse<LibraryBookAddResponse>>('/api/v1/library', {
       bookId,
@@ -253,6 +254,9 @@ export async function addLibraryBook(
     }
     return data.data
   } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 409) {
+      return { alreadyExists: true }
+    }
     throw normalizeAxiosError(
       error,
       '서재에 도서를 추가하지 못했습니다. 잠시 후 다시 시도해주세요.'
