@@ -63,6 +63,8 @@ export default function ReviewDetailPage() {
     const controller = new AbortController()
     setIsLoading(true)
     setErrorMessage(null)
+    setSheetOpen(false)
+    setSavedStatus(null)
     ;(async () => {
       try {
         const result = await getReviewDetail(reviewId, controller.signal)
