@@ -104,6 +104,20 @@ export async function markNotificationAsRead(
 }
 
 /**
+ * 현재 사용자의 모든 미읽음 알림을 일괄 읽음 처리한다.
+ *
+ * 멱등 — 미읽음 0건이어도 200 반환. 호출자가 fire-and-forget(`.catch(() => {})`)으로
+ * 사용할 수 있도록 설계되었으며, 개별 읽음 처리와 달리 AbortSignal을 받지 않는다.
+ */
+export async function markAllNotificationsAsRead(): Promise<void> {
+  try {
+    await apiClient.patch<ApiResponse<void>>('/api/v1/notifications/read-all')
+  } catch (error) {
+    throw normalizeAxiosError(error, '알림 전체 읽음 처리에 실패했습니다.')
+  }
+}
+
+/**
  * 미읽음 알림 개수를 조회한다.
  *
  * @remarks HomeFeedPage 종 아이콘 뱃지에서 사용 예정 (후속 이슈).

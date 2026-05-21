@@ -4,6 +4,7 @@ import axios from 'axios'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import {
   getNotifications,
+  markAllNotificationsAsRead,
   markNotificationAsRead,
   type NotificationItem,
   type NotificationType,
@@ -130,6 +131,9 @@ export default function NotificationsPage() {
         setNotifications(response.content)
         setNextCursor(response.nextCursor)
         setHasNext(response.hasNext)
+        if (response.content.some(n => !n.isRead)) {
+          markAllNotificationsAsRead().catch(() => {})
+        }
       } catch (error) {
         if (axios.isCancel(error) || controller.signal.aborted) return
         setErrorMessage(error instanceof Error ? error.message : '알림을 불러오지 못했습니다.')
