@@ -328,7 +328,7 @@ export default function HomeFeedPage() {
         <div className="flex items-center justify-between px-4 py-3">
           <div className="w-10" />
           <h1
-            role="link"
+            role="button"
             tabIndex={0}
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             onKeyDown={e => {
