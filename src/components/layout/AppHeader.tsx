@@ -15,6 +15,7 @@ export default function AppHeader({
   className,
 }: AppHeaderProps) {
   const navigate = useNavigate()
+  const isHomeLogo = title === 'Shelfeed'
 
   return (
     <header
@@ -34,7 +35,24 @@ export default function AppHeader({
         )}
       </div>
 
-      <h1 className={cn('text-xl font-bold tracking-tight text-primary', !showBack && 'text-2xl')}>
+      <h1
+        {...(isHomeLogo && {
+          role: 'link',
+          tabIndex: 0,
+          onClick: () => navigate('/'),
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              navigate('/')
+            }
+          },
+        })}
+        className={cn(
+          'text-xl font-bold tracking-tight text-primary',
+          !showBack && 'text-2xl',
+          isHomeLogo && 'cursor-pointer transition-opacity hover:opacity-70'
+        )}
+      >
         {title}
       </h1>
 
