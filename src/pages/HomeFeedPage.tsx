@@ -7,8 +7,7 @@ import { getUnreadNotificationCount } from '@/api/notification'
 import BottomNav from '@/components/layout/BottomNav'
 import PopupBanner from '@/components/common/PopupBanner'
 import ReviewCard, { type ReviewCardData } from '@/components/common/ReviewCard'
-
-type TabValue = 'following' | 'recommend'
+import { useFeedStore, setFeedTabCache, type FeedTab } from '@/store/feedStore'
 
 /**
  * 백엔드 `FeedItem` 응답을 `ReviewCardData`로 매핑한다.
@@ -85,7 +84,7 @@ function recommendToCard(item: RecommendItem): ReviewCardData {
  * @returns 헤더(로고/알림) + 탭(팔로잉/추천) + 피드 리스트 + BottomNav를 렌더링하는 React 엘리먼트
  */
 export default function HomeFeedPage() {
-  const [activeTab, setActiveTab] = useState<TabValue>('following')
+  const [activeTab, setActiveTab] = useState<FeedTab>(() => useFeedStore.getState().activeTab)
   /**
    * 종 아이콘 미읽음 알림 카운트.
    *
@@ -108,6 +107,8 @@ export default function HomeFeedPage() {
 
   const observerRef = useRef<IntersectionObserver | null>(null)
   const moreControllerRef = useRef<AbortController | null>(null)
+  const itemsRef = useRef(items)
+  itemsRef.current = items
 
   const stateRef = useRef({
     hasNext,
@@ -130,8 +131,51 @@ export default function HomeFeedPage() {
     loadMoreError,
   }
 
-  // 초기 로딩 + 탭 변경 시 재요청.
+  /**
+   * 탭 전환·마운트 시 피드 데이터를 로딩하거나 캐시에서 복원한다.
+   *
+   * feedStore에 해당 탭 캐시가 있으면 API 호출 없이 복원 후 스크롤 위치까지 재현.
+   * 캐시가 없으면 기존대로 API에서 첫 페이지를 가져온다.
+   * cleanup에서 현재 탭의 피드 데이터 + scrollY를 feedStore에 저장하여
+   * 다음 방문 시 복원할 수 있도록 한다.
+   */
   useEffect(() => {
+    const currentTab = activeTab
+    const cache = useFeedStore.getState()[currentTab]
+
+    const saveCurrentTab = () => {
+      if (itemsRef.current.length === 0) return
+      setFeedTabCache(currentTab, {
+        items: itemsRef.current,
+        nextCursor: stateRef.current.nextCursor,
+        nextCursorId: stateRef.current.nextCursorId,
+        nextCursorLike: stateRef.current.nextCursorLike,
+        hasNext: stateRef.current.hasNext,
+        scrollY: window.scrollY,
+      })
+    }
+
+    if (cache && cache.items.length > 0) {
+      setItems(cache.items)
+      setNextCursor(cache.nextCursor)
+      setNextCursorId(cache.nextCursorId)
+      setNextCursorLike(cache.nextCursorLike)
+      setHasNext(cache.hasNext)
+      setIsLoading(false)
+      setIsLoadingMore(false)
+      setErrorMessage(null)
+      setLoadMoreError(null)
+      const savedY = cache.scrollY
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => window.scrollTo(0, savedY))
+      })
+
+      return () => {
+        moreControllerRef.current?.abort()
+        saveCurrentTab()
+      }
+    }
+
     setIsLoadingMore(false)
     setLoadMoreError(null)
     moreControllerRef.current?.abort()
@@ -146,7 +190,7 @@ export default function HomeFeedPage() {
     setIsLoading(true)
     ;(async () => {
       try {
-        if (activeTab === 'following') {
+        if (currentTab === 'following') {
           const response = await getFollowingFeed({
             cursor: null,
             signal: controller.signal,
@@ -178,6 +222,7 @@ export default function HomeFeedPage() {
     return () => {
       controller.abort()
       moreControllerRef.current?.abort()
+      saveCurrentTab()
     }
   }, [activeTab])
 
@@ -363,7 +408,10 @@ export default function HomeFeedPage() {
             type="button"
             role="tab"
             aria-selected={activeTab === 'following'}
-            onClick={() => setActiveTab('following')}
+            onClick={() => {
+              setActiveTab('following')
+              useFeedStore.setState({ activeTab: 'following' })
+            }}
             className="relative flex flex-col items-center py-3"
           >
             <span
@@ -382,7 +430,10 @@ export default function HomeFeedPage() {
             type="button"
             role="tab"
             aria-selected={activeTab === 'recommend'}
-            onClick={() => setActiveTab('recommend')}
+            onClick={() => {
+              setActiveTab('recommend')
+              useFeedStore.setState({ activeTab: 'recommend' })
+            }}
             className="relative flex flex-col items-center py-3"
           >
             <span
