@@ -9,7 +9,7 @@ import { searchAll, type BookSearchItem, type UserSearchItem, type SearchType } 
 import { cn } from '@/lib/utils'
 import { useSearchStore, RECENT_KEYWORDS_KEY } from '@/store/searchStore'
 const MAX_RECENT_KEYWORDS = 10
-const ALL_TAB_PREVIEW_COUNT = 3
+const ALL_TAB_PREVIEW_COUNT = 5
 
 // ZXing 의존성을 가진 모달은 사용자가 카메라 버튼을 눌렀을 때만 다운로드
 const IsbnScannerModal = lazy(() => import('@/components/common/IsbnScannerModal'))
