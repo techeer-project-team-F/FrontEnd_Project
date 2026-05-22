@@ -6,8 +6,6 @@ import { useNavigate } from 'react-router-dom'
 import AppHeader from '@/components/layout/AppHeader'
 import { withdrawAccount } from '@/api/member'
 import { useAuthStore } from '@/store/authStore'
-import { clearSearchCache } from '@/store/searchStore'
-import { clearFeedCache } from '@/store/feedStore'
 import {
   Dialog,
   DialogContent,
@@ -73,8 +71,6 @@ export default function WithdrawPage() {
       setPendingData(null)
       setIsConfirmOpen(false)
       clearAuth()
-      clearSearchCache()
-      clearFeedCache()
       navigate('/login', { replace: true })
     } catch (error) {
       setIsConfirmOpen(false)

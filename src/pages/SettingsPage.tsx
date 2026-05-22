@@ -6,7 +6,6 @@ import { logout, resendEmailCode } from '@/api/auth'
 import { getSettings, updateSettings, type SettingsResponse } from '@/api/member'
 import { useAuthStore } from '@/store/authStore'
 import { clearSearchCache } from '@/store/searchStore'
-import { clearFeedCache } from '@/store/feedStore'
 import type { EmailVerifyLocationState } from '@/pages/EmailVerificationPage'
 
 function Toggle({
@@ -188,7 +187,6 @@ export default function SettingsPage() {
     } finally {
       clearAuth()
       clearSearchCache()
-      clearFeedCache()
       navigate('/login', { replace: true })
     }
   }
