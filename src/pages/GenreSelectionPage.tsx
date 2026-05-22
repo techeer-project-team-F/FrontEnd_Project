@@ -189,7 +189,7 @@ export default function GenreSelectionPage() {
         )}
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 bg-background px-6 pb-8 pt-4">
+      <div className="fixed inset-x-0 bottom-0 mx-auto max-w-[430px] bg-background px-6 pb-8 pt-4">
         {submitError && (
           <p
             role="alert"
