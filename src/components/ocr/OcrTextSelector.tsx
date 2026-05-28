@@ -102,6 +102,7 @@ export default function OcrTextSelector({
                   key={lineIndex}
                   type="button"
                   onClick={() => toggleLine(lineIndex)}
+                  aria-pressed={isSelected}
                   className={`absolute cursor-pointer rounded-sm transition-colors ${
                     isSelected
                       ? 'border-2 border-primary bg-primary/30'

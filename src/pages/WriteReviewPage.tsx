@@ -161,6 +161,7 @@ export default function WriteReviewPage() {
     const controller = new AbortController()
     ocrAbortRef.current = controller
     setIsOcrLoading(true)
+    setSubmitErrorMessage(null)
     try {
       const dataUrl = await readFileAsDataUrl(file)
       const base64 = dataUrl.split(',')[1]
@@ -383,7 +384,7 @@ export default function WriteReviewPage() {
                     accept="image/*"
                     capture="environment"
                     onChange={handleOcrCapture}
-                    className="hidden"
+                    className="sr-only"
                     disabled={isOcrLoading}
                   />
                 </label>
