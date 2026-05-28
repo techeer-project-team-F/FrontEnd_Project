@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import {
@@ -540,34 +541,61 @@ function CommentRow({
   ) => void
   onReport: (commentId: number) => void
 }) {
+  const navigate = useNavigate()
+
   if (comment.isDeleted) {
     return <div className="py-3 text-sm text-muted-foreground/50 italic">삭제된 댓글입니다.</div>
   }
 
   const isBeingDeleted = deletingId === comment.commentId
+  const user = comment.user
+  const goToProfile = user ? () => navigate(`/user/${user.userId}`) : undefined
 
   return (
     <div className={cn('py-3', isBeingDeleted && 'opacity-50')}>
       <div className="flex items-start gap-3">
-        {/* 아바타 */}
-        <div className="size-8 shrink-0 overflow-hidden rounded-full bg-primary/10">
-          {comment.user?.profileImageUrl ? (
-            <img
-              src={comment.user.profileImageUrl}
-              alt={comment.user.nickname}
-              className="size-full object-cover"
-            />
-          ) : (
-            <div className="flex size-full items-center justify-center">
-              <span className="material-symbols-outlined text-[16px] text-primary/40">person</span>
-            </div>
-          )}
-        </div>
+        {/* 아바타 — 클릭 시 작성자 프로필로 이동 */}
+        {user ? (
+          <button
+            type="button"
+            onClick={goToProfile}
+            aria-label={`${user.nickname}님의 프로필 보기`}
+            className="size-8 shrink-0 overflow-hidden rounded-full bg-primary/10 transition-opacity hover:opacity-80"
+          >
+            {user.profileImageUrl ? (
+              <img
+                src={user.profileImageUrl}
+                alt={user.nickname}
+                className="size-full object-cover"
+              />
+            ) : (
+              <div className="flex size-full items-center justify-center">
+                <span className="material-symbols-outlined text-[16px] text-primary/40">
+                  person
+                </span>
+              </div>
+            )}
+          </button>
+        ) : (
+          <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10">
+            <span className="material-symbols-outlined text-[16px] text-primary/40">person</span>
+          </div>
+        )}
 
         <div className="min-w-0 flex-1">
           {/* 닉네임 + 시간 */}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold">{comment.user?.nickname ?? '알 수 없음'}</span>
+            {user ? (
+              <button
+                type="button"
+                onClick={goToProfile}
+                className="text-sm font-bold hover:underline"
+              >
+                {user.nickname}
+              </button>
+            ) : (
+              <span className="text-sm font-bold">알 수 없음</span>
+            )}
             <span className="text-xs text-muted-foreground">
               {formatRelativeTime(comment.createdAt)}
               {comment.isEdited && ' (수정됨)'}

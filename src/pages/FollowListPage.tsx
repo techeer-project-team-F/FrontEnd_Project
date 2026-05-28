@@ -380,7 +380,7 @@ export default function FollowListPage() {
                             : 'shrink-0 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
                         }
                       >
-                        {isToggling ? '처리 중' : item.isFollowing ? '팔로잉' : '팔로우'}
+                        {isToggling ? '처리 중' : item.isFollowing ? '팔로우 취소' : '맞팔로우'}
                       </button>
                     )}
                   </div>
