@@ -351,7 +351,7 @@ export default function UserProfilePage() {
                 : 'w-full rounded-xl bg-primary py-4 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
             }
           >
-            {isFollowProcessing ? '처리 중...' : profile.isFollowing ? '팔로잉' : '팔로우'}
+            {isFollowProcessing ? '처리 중...' : profile.isFollowing ? '팔로우 취소' : '팔로우'}
           </button>
           {followError && (
             <p
