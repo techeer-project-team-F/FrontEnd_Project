@@ -181,14 +181,11 @@ export default function WriteReviewPage() {
   }
 
   /**
-   * OcrTextSelector에서 선택 완료 시 호출. 선택된 텍스트를 인용구 textarea에 채운다.
-   * MAX_QUOTE_LENGTH를 초과하면 자동으로 잘라낸다.
+   * OcrTextSelector에서 선택 완료 시 호출. 선택된 텍스트로 인용구를 교체한다.
+   * "다시 입력" 시에도 기존 텍스트를 덮어쓴다 (추가가 아닌 교체).
    */
   const handleOcrConfirm = (selectedText: string) => {
-    setQuoteText(prev => {
-      const combined = prev ? prev + '\n' + selectedText : selectedText
-      return combined.slice(0, MAX_QUOTE_LENGTH)
-    })
+    setQuoteText(selectedText.slice(0, MAX_QUOTE_LENGTH))
     setIsQuoteEditorOpen(true)
     setOcrResult(null)
   }
@@ -365,7 +362,18 @@ export default function WriteReviewPage() {
         {/* Quote Editor */}
         {isQuoteEditorOpen && (
           <section className="px-8 py-2">
-            <div className="rounded-2xl bg-primary/5 p-5">
+            <div className="relative rounded-2xl bg-primary/5 p-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsQuoteEditorOpen(false)
+                  setQuoteText('')
+                }}
+                aria-label="인용구 닫기"
+                className="absolute right-3 top-3 flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
               <div className="border-l-4 border-primary pl-4">
                 <textarea
                   value={quoteText}
@@ -383,7 +391,7 @@ export default function WriteReviewPage() {
                   className="flex items-center gap-1 text-sm font-semibold text-primary transition-colors hover:text-primary/80 disabled:opacity-50"
                 >
                   <span className="material-symbols-outlined text-[18px]">photo_camera</span>
-                  {isOcrLoading ? '인식 중...' : '사진으로 다시 입력'}
+                  {isOcrLoading ? '인식 중...' : '사진으로 입력'}
                 </button>
                 <span className="text-xs text-muted-foreground">{quoteText.length}/200</span>
               </div>
@@ -392,14 +400,14 @@ export default function WriteReviewPage() {
         )}
 
         {/* Quote Add Button + Spoiler Toggle */}
-        <section className="flex items-center justify-between gap-4 px-8 py-3">
-          <div className="flex items-center gap-4">
+        <section className="flex items-center justify-between gap-2 px-6 py-3">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setIsQuoteEditorOpen(true)}
-              className="flex items-center gap-2 text-base font-bold text-primary transition-colors hover:text-primary/80"
+              className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-bold text-primary transition-colors hover:text-primary/80"
             >
-              <span className="material-symbols-outlined text-[20px]">format_quote</span>
+              <span className="material-symbols-outlined text-[18px]">format_quote</span>
               인용구 추가
             </button>
             {!isQuoteEditorOpen && (
@@ -407,14 +415,14 @@ export default function WriteReviewPage() {
                 type="button"
                 onClick={() => setIsOcrSheetOpen(true)}
                 disabled={isOcrLoading}
-                className="flex items-center gap-2 text-base font-bold text-primary transition-colors hover:text-primary/80 disabled:opacity-50"
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-bold text-primary transition-colors hover:text-primary/80 disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[20px]">photo_camera</span>
+                <span className="material-symbols-outlined text-[18px]">photo_camera</span>
                 {isOcrLoading ? '인식 중...' : '사진으로 입력'}
               </button>
             )}
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted-foreground select-none">
+          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-muted-foreground select-none">
             <input
               type="checkbox"
               checked={isSpoiler}
@@ -460,6 +468,17 @@ export default function WriteReviewPage() {
       </main>
 
       <BottomNav />
+
+      {isOcrLoading && (
+        <div className="fixed inset-0 z-50 mx-auto flex max-w-[430px] items-center justify-center bg-black/80">
+          <div className="flex flex-col items-center gap-4">
+            <span className="material-symbols-outlined animate-spin text-5xl text-white">
+              progress_activity
+            </span>
+            <p className="text-lg font-bold text-white">텍스트 인식 중...</p>
+          </div>
+        </div>
+      )}
 
       <OcrInputMethodSheet
         isOpen={isOcrSheetOpen}

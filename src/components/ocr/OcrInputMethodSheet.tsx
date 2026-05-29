@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import WebcamCapture from './WebcamCapture'
 
 interface OcrInputMethodSheetProps {
@@ -8,9 +8,13 @@ interface OcrInputMethodSheetProps {
   isLoading: boolean
 }
 
-const IS_MOBILE =
-  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-  (navigator.maxTouchPoints > 0 && /Macintosh/i.test(navigator.userAgent))
+function isMobile(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return (
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 0 && /Macintosh/i.test(navigator.userAgent))
+  )
+}
 
 /**
  * OCR 사진 입력 방식을 선택하는 바텀시트.
@@ -39,7 +43,7 @@ export default function OcrInputMethodSheet({
   )
 
   const handleCameraClick = useCallback(() => {
-    if (IS_MOBILE) {
+    if (isMobile()) {
       cameraInputRef.current?.click()
     } else {
       setShowWebcam(true)
@@ -67,6 +71,15 @@ export default function OcrInputMethodSheet({
     if (isLoading) return
     onClose()
   }, [isLoading, onClose])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleOverlayClose()
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [isOpen, handleOverlayClose])
 
   if (!isOpen) return null
 
@@ -109,7 +122,7 @@ export default function OcrInputMethodSheet({
             <div>
               <p className="text-base font-bold text-foreground">카메라로 촬영</p>
               <p className="text-sm text-muted-foreground">
-                {IS_MOBILE ? '카메라 앱으로 촬영합니다' : '웹캠으로 촬영합니다'}
+                {isMobile() ? '카메라 앱으로 촬영합니다' : '웹캠으로 촬영합니다'}
               </p>
             </div>
           </button>
@@ -124,7 +137,7 @@ export default function OcrInputMethodSheet({
             <div>
               <p className="text-base font-bold text-foreground">사진에서 선택</p>
               <p className="text-sm text-muted-foreground">
-                {IS_MOBILE ? '갤러리에서 선택합니다' : '파일 탐색기에서 선택합니다'}
+                {isMobile() ? '갤러리에서 선택합니다' : '파일 탐색기에서 선택합니다'}
               </p>
             </div>
           </button>

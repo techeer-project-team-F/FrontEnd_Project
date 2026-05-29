@@ -25,6 +25,14 @@ export default function OcrTextSelector({
 
   const lines = useMemo(() => groupFieldsIntoLines(fields), [fields])
 
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [onClose])
+
   const handleImageLoad = useCallback(() => {
     const img = imgRef.current
     if (!img) return
@@ -63,7 +71,7 @@ export default function OcrTextSelector({
   const scaleY = displaySize && imgSize ? displaySize.h / imgSize.h : 1
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/90">
+    <div className="fixed inset-0 z-50 mx-auto flex max-w-[430px] flex-col bg-black/90">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
         <button
@@ -106,7 +114,7 @@ export default function OcrTextSelector({
                   className={`absolute cursor-pointer rounded-sm transition-colors ${
                     isSelected
                       ? 'border-2 border-primary bg-primary/30'
-                      : 'border border-transparent hover:bg-white/15'
+                      : 'border border-white/40 bg-white/25 hover:bg-white/35'
                   }`}
                   style={{
                     left: bounds.x * scaleX,
