@@ -153,11 +153,11 @@ export default function WriteReviewPage() {
    * Base64 변환 후 OCR API를 호출하고, 결과를 OcrTextSelector로 넘긴다.
    */
   const handleOcrCapture = async (file: File) => {
+    setIsOcrSheetOpen(false)
     if (file.size > MAX_IMAGE_SIZE) {
       setSubmitErrorMessage('이미지 크기가 너무 큽니다. 5MB 이하의 이미지를 선택해주세요.')
       return
     }
-    setIsOcrSheetOpen(false)
     ocrAbortRef.current?.abort()
     const controller = new AbortController()
     ocrAbortRef.current = controller
@@ -470,7 +470,12 @@ export default function WriteReviewPage() {
       <BottomNav />
 
       {isOcrLoading && (
-        <div className="fixed inset-0 z-50 mx-auto flex max-w-[430px] items-center justify-center bg-black/80">
+        <div
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          className="fixed inset-0 z-50 mx-auto flex max-w-[430px] items-center justify-center bg-black/80"
+        >
           <div className="flex flex-col items-center gap-4">
             <span className="material-symbols-outlined animate-spin text-5xl text-white">
               progress_activity
