@@ -444,10 +444,12 @@ export default function WriteReviewPage() {
           <div className="flex gap-3">
             <button
               type="button"
-              disabled={isSubmitting}
-              className="h-14 flex-1 rounded-full border-2 border-primary bg-background text-base font-bold text-primary transition-colors hover:bg-primary/5"
+              disabled
+              title="준비 중인 기능입니다"
+              aria-label="임시저장 (준비 중)"
+              className="h-14 flex-1 cursor-not-allowed whitespace-nowrap rounded-full border-2 border-primary/40 bg-background text-sm font-bold text-primary/40"
             >
-              임시저장
+              임시저장 (준비 중)
             </button>
             <button
               type="button"

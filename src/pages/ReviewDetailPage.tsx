@@ -68,14 +68,14 @@ export default function ReviewDetailPage() {
     ;(async () => {
       try {
         const result = await getReviewDetail(reviewId, controller.signal)
+        // 응답이 abort 직전에 이미 resolve된 경우 axios가 throw하지 않으므로, reviewId를 빠르게
+        // 전환할 때 stale 데이터로 화면을 덮어쓰지 않도록 setter 직전에 가드한다(다른 fetch effect와 패턴 통일).
+        if (controller.signal.aborted) return
         setReview(result)
         setLiked(result.isLiked)
         setLikeCount(result.likeCount)
       } catch (error) {
-        // [MED-1 fix] try 블록 내 controller.signal.aborted 가드는 사실상 도달 불가
-        // (요청이 abort되면 axios가 throw로 빠짐) + _helpers.ts의 normalizeAxiosError가
-        // 이미 cancel을 rethrow하므로 catch에서 axios.isCancel만 보면 책임이 끝난다.
-        // 다른 도메인(book/library 등)과 패턴 통일 + CLAUDE.md "방어 코드 최소화"에 맞춰 단일화.
+        // 요청 취소(reviewId 전환/언마운트)는 정상 흐름이므로 무시. normalizeAxiosError가 cancel을 rethrow.
         if (axios.isCancel(error)) return
         setErrorMessage(error instanceof Error ? error.message : '감상을 불러오지 못했습니다.')
       } finally {
