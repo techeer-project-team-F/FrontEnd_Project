@@ -447,9 +447,9 @@ export default function WriteReviewPage() {
               disabled
               title="준비 중인 기능입니다"
               aria-label="임시저장 (준비 중)"
-              className="h-14 flex-1 cursor-not-allowed rounded-full border-2 border-primary/40 bg-background text-base font-bold text-primary/40"
+              className="h-14 flex-1 cursor-not-allowed whitespace-nowrap rounded-full border-2 border-primary/40 bg-background text-sm font-bold text-primary/40"
             >
-              임시저장
+              임시저장 (준비 중)
             </button>
             <button
               type="button"
