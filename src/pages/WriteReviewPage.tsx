@@ -1,11 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { getBook, type BookDetail } from '@/api/book'
 import { createReview, getReviewDetail, updateReview } from '@/api/review'
+import { extractTextFromImage, type OcrTextField } from '@/api/ocr'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
+import OcrInputMethodSheet from '@/components/ocr/OcrInputMethodSheet'
+import OcrTextSelector from '@/components/ocr/OcrTextSelector'
 import { useAuthStore } from '@/store/authStore'
+
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+const MAX_QUOTE_LENGTH = 200
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 type ReviewFormBook = Pick<BookDetail, 'bookId' | 'title' | 'author' | 'coverImageUrl'>
 
@@ -24,6 +39,11 @@ export default function WriteReviewPage() {
   // 피드의 ReviewCard에서 hasSpoiler 블러 처리가 동작하지 않아 다른 사용자에게 결말이 새는
   // 도메인 정책 위반이 발생했다. 사용자가 명시적으로 토글로 표시하도록 state로 받음.
   const [isSpoiler, setIsSpoiler] = useState(false)
+  const [isOcrLoading, setIsOcrLoading] = useState(false)
+  const [isOcrSheetOpen, setIsOcrSheetOpen] = useState(false)
+  const [ocrResult, setOcrResult] = useState<{ imageSrc: string; fields: OcrTextField[] } | null>(
+    null
+  )
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   // [CodeRabbit fix] 단일 errorMessage가 "도서 로드 실패"와 "감상 제출 실패"를 함께 다뤄
@@ -119,6 +139,56 @@ export default function WriteReviewPage() {
 
     return () => controller.abort()
   }, [bookId, currentUserId, isEditMode, reviewId])
+
+  const ocrAbortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      ocrAbortRef.current?.abort()
+    }
+  }, [])
+
+  /**
+   * OcrInputMethodSheet에서 파일이 선택(촬영 또는 갤러리)되면 호출.
+   * Base64 변환 후 OCR API를 호출하고, 결과를 OcrTextSelector로 넘긴다.
+   */
+  const handleOcrCapture = async (file: File) => {
+    setIsOcrSheetOpen(false)
+    if (file.size > MAX_IMAGE_SIZE) {
+      setSubmitErrorMessage('이미지 크기가 너무 큽니다. 5MB 이하의 이미지를 선택해주세요.')
+      return
+    }
+    ocrAbortRef.current?.abort()
+    const controller = new AbortController()
+    ocrAbortRef.current = controller
+    setIsOcrLoading(true)
+    setSubmitErrorMessage(null)
+    try {
+      const dataUrl = await readFileAsDataUrl(file)
+      const base64 = dataUrl.split(',')[1]
+      const rawFormat = file.type.split('/')[1] || 'jpg'
+      const format = rawFormat === 'jpeg' ? 'jpg' : rawFormat
+      const result = await extractTextFromImage(base64, format, controller.signal)
+      if (controller.signal.aborted) return
+      setOcrResult({ imageSrc: dataUrl, fields: result.fields })
+    } catch {
+      if (!controller.signal.aborted) {
+        setSubmitErrorMessage('텍스트 추출에 실패했습니다. 다시 시도해주세요.')
+      }
+    } finally {
+      if (!controller.signal.aborted) setIsOcrLoading(false)
+    }
+  }
+
+  /**
+   * OcrTextSelector에서 선택 완료 시 호출. 선택된 텍스트로 인용구를 교체한다.
+   * "다시 입력" 시에도 기존 텍스트를 덮어쓴다 (추가가 아닌 교체).
+   */
+  const handleOcrConfirm = (selectedText: string) => {
+    setQuoteText(selectedText.slice(0, MAX_QUOTE_LENGTH))
+    setIsQuoteEditorOpen(true)
+    setOcrResult(null)
+  }
 
   const handleSubmit = async () => {
     const isValidBookId = /^\d+$/.test(bookId ?? '')
@@ -292,7 +362,18 @@ export default function WriteReviewPage() {
         {/* Quote Editor */}
         {isQuoteEditorOpen && (
           <section className="px-8 py-2">
-            <div className="rounded-2xl bg-primary/5 p-5">
+            <div className="relative rounded-2xl bg-primary/5 p-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsQuoteEditorOpen(false)
+                  setQuoteText('')
+                }}
+                aria-label="인용구 닫기"
+                className="absolute right-3 top-3 flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
               <div className="border-l-4 border-primary pl-4">
                 <textarea
                   value={quoteText}
@@ -302,23 +383,46 @@ export default function WriteReviewPage() {
                   className="min-h-[96px] w-full resize-none bg-transparent text-lg italic leading-relaxed outline-none placeholder:text-muted-foreground/50"
                 />
               </div>
+              <div className="mt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setIsOcrSheetOpen(true)}
+                  disabled={isOcrLoading}
+                  className="flex items-center gap-1 text-sm font-semibold text-primary transition-colors hover:text-primary/80 disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[18px]">photo_camera</span>
+                  {isOcrLoading ? '인식 중...' : '사진으로 입력'}
+                </button>
+                <span className="text-xs text-muted-foreground">{quoteText.length}/200</span>
+              </div>
             </div>
           </section>
         )}
 
-        {/* Quote Add Button + Spoiler Toggle
-            [HIGH-1 fix] 스포일러 토글 UI 추가. 이 값이 ReviewCard의 hasSpoiler 블러 분기와
-            연결되므로 작성자가 결말 노출 여부를 직접 선택할 수 있어야 한다. */}
-        <section className="flex items-center justify-between gap-4 px-8 py-3">
-          <button
-            type="button"
-            onClick={() => setIsQuoteEditorOpen(true)}
-            className="flex items-center gap-2 text-base font-bold text-primary transition-colors hover:text-primary/80"
-          >
-            <span className="material-symbols-outlined text-[20px]">format_quote</span>
-            인용구 추가
-          </button>
-          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted-foreground select-none">
+        {/* Quote Add Button + Spoiler Toggle */}
+        <section className="flex items-center justify-between gap-2 px-6 py-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsQuoteEditorOpen(true)}
+              className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-bold text-primary transition-colors hover:text-primary/80"
+            >
+              <span className="material-symbols-outlined text-[18px]">format_quote</span>
+              인용구 추가
+            </button>
+            {!isQuoteEditorOpen && (
+              <button
+                type="button"
+                onClick={() => setIsOcrSheetOpen(true)}
+                disabled={isOcrLoading}
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-bold text-primary transition-colors hover:text-primary/80 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">photo_camera</span>
+                {isOcrLoading ? '인식 중...' : '사진으로 입력'}
+              </button>
+            )}
+          </div>
+          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-muted-foreground select-none">
             <input
               type="checkbox"
               checked={isSpoiler}
@@ -364,6 +468,38 @@ export default function WriteReviewPage() {
       </main>
 
       <BottomNav />
+
+      {isOcrLoading && (
+        <div
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          className="fixed inset-0 z-50 mx-auto flex max-w-[430px] items-center justify-center bg-black/80"
+        >
+          <div className="flex flex-col items-center gap-4">
+            <span className="material-symbols-outlined animate-spin text-5xl text-white">
+              progress_activity
+            </span>
+            <p className="text-lg font-bold text-white">텍스트 인식 중...</p>
+          </div>
+        </div>
+      )}
+
+      <OcrInputMethodSheet
+        isOpen={isOcrSheetOpen}
+        onClose={() => setIsOcrSheetOpen(false)}
+        onFileSelected={handleOcrCapture}
+        isLoading={isOcrLoading}
+      />
+
+      {ocrResult && (
+        <OcrTextSelector
+          imageSrc={ocrResult.imageSrc}
+          fields={ocrResult.fields}
+          onConfirm={handleOcrConfirm}
+          onClose={() => setOcrResult(null)}
+        />
+      )}
     </div>
   )
 }
