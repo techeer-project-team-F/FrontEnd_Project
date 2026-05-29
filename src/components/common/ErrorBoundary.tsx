@@ -34,7 +34,8 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
   }
 
   private handleReload = () => {
-    window.location.assign('/')
+    // 현재 URL을 그대로 재요청해 딥링크/복구 컨텍스트를 보존한다('다시 시도' 라벨과 일치).
+    window.location.reload()
   }
 
   render() {

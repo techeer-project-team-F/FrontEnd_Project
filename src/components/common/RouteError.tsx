@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link, isRouteErrorResponse, useRouteError } from 'react-router-dom'
 
 /**
@@ -12,9 +13,13 @@ import { Link, isRouteErrorResponse, useRouteError } from 'react-router-dom'
  */
 export default function RouteError() {
   const error = useRouteError()
-  if (import.meta.env.DEV) {
-    console.error('RouteError가 에러를 포착했습니다:', error)
-  }
+
+  // 로깅은 렌더 부수효과를 피해 effect에서 처리한다(StrictMode 이중 렌더 시 중복 로깅 방지).
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.error('RouteError가 에러를 포착했습니다:', error)
+    }
+  }, [error])
 
   const is404 = isRouteErrorResponse(error) && error.status === 404
 
