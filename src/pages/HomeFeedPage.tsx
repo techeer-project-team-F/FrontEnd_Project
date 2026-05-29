@@ -294,9 +294,17 @@ export default function HomeFeedPage() {
         })
         if (controller.signal.aborted) return
         if (stateRef.current.activeTab !== tab) return
-        setItems(prev => [...prev, ...response.content.map(toReviewCardData)])
-        setNextCursor(response.nextCursor)
-        setHasNext(response.hasNext)
+        // 중복 제거: 페이지 경계에서 동일 리뷰가 재등장하면 key 충돌·카드 중복이 생기므로
+        // 기존 id Set으로 필터링해 append한다(BookReviewsListPage/BookSearchPage 패턴과 통일).
+        const mapped = response.content.map(toReviewCardData)
+        setItems(prev => {
+          const existingIds = new Set(prev.map(item => item.id))
+          const deduped = mapped.filter(item => !existingIds.has(item.id))
+          return deduped.length > 0 ? [...prev, ...deduped] : prev
+        })
+        const hasNewItems = response.content.length > 0
+        if (hasNewItems) setNextCursor(response.nextCursor)
+        setHasNext(hasNewItems && response.hasNext)
       } else {
         const response = await getRecommendFeed({
           cursorLike: s.nextCursorLike,
@@ -305,10 +313,18 @@ export default function HomeFeedPage() {
         })
         if (controller.signal.aborted) return
         if (stateRef.current.activeTab !== tab) return
-        setItems(prev => [...prev, ...response.content.map(recommendToCard)])
-        setNextCursorId(response.nextCursorId)
-        setNextCursorLike(response.nextCursorLike)
-        setHasNext(response.hasNext)
+        const mapped = response.content.map(recommendToCard)
+        setItems(prev => {
+          const existingIds = new Set(prev.map(item => item.id))
+          const deduped = mapped.filter(item => !existingIds.has(item.id))
+          return deduped.length > 0 ? [...prev, ...deduped] : prev
+        })
+        const hasNewItems = response.content.length > 0
+        if (hasNewItems) {
+          setNextCursorId(response.nextCursorId)
+          setNextCursorLike(response.nextCursorLike)
+        }
+        setHasNext(hasNewItems && response.hasNext)
       }
     } catch (error) {
       if (axios.isCancel(error) || controller.signal.aborted) return

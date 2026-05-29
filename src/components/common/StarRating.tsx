@@ -13,9 +13,12 @@ const sizeMap = {
 }
 
 export default function StarRating({ rating, size = 'md', className }: StarRatingProps) {
-  const fullStars = Math.floor(rating)
-  const hasHalf = rating - fullStars >= 0.5
-  const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0)
+  // 백엔드 집계 오류 등으로 [0,5]를 벗어난 값(또는 NaN/Infinity)이 와도 Array.from에 음수 length가
+  // 들어가 RangeError(화이트스크린)가 나지 않도록 진입부에서 clamp한다.
+  const safeRating = Math.min(5, Math.max(0, Number.isFinite(rating) ? rating : 0))
+  const fullStars = Math.floor(safeRating)
+  const hasHalf = safeRating - fullStars >= 0.5
+  const emptyStars = Math.max(0, 5 - fullStars - (hasHalf ? 1 : 0))
 
   return (
     <div className={cn('flex gap-0.5', className)}>
