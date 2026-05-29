@@ -6,6 +6,7 @@ import { createReview, getReviewDetail, updateReview } from '@/api/review'
 import { extractTextFromImage, type OcrTextField } from '@/api/ocr'
 import AppHeader from '@/components/layout/AppHeader'
 import BottomNav from '@/components/layout/BottomNav'
+import OcrInputMethodSheet from '@/components/ocr/OcrInputMethodSheet'
 import OcrTextSelector from '@/components/ocr/OcrTextSelector'
 import { useAuthStore } from '@/store/authStore'
 
@@ -39,6 +40,7 @@ export default function WriteReviewPage() {
   // 도메인 정책 위반이 발생했다. 사용자가 명시적으로 토글로 표시하도록 state로 받음.
   const [isSpoiler, setIsSpoiler] = useState(false)
   const [isOcrLoading, setIsOcrLoading] = useState(false)
+  const [isOcrSheetOpen, setIsOcrSheetOpen] = useState(false)
   const [ocrResult, setOcrResult] = useState<{ imageSrc: string; fields: OcrTextField[] } | null>(
     null
   )
@@ -147,16 +149,15 @@ export default function WriteReviewPage() {
   }, [])
 
   /**
-   * 사진 선택 시 OCR API를 호출하여 텍스트 블록 + 좌표를 받아온다.
-   * 결과는 OcrTextSelector 모달에서 이미지 위 오버레이로 표시된다.
+   * OcrInputMethodSheet에서 파일이 선택(촬영 또는 갤러리)되면 호출.
+   * Base64 변환 후 OCR API를 호출하고, 결과를 OcrTextSelector로 넘긴다.
    */
-  const handleOcrCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleOcrCapture = async (file: File) => {
     if (file.size > MAX_IMAGE_SIZE) {
       setSubmitErrorMessage('이미지 크기가 너무 큽니다. 5MB 이하의 이미지를 선택해주세요.')
       return
     }
+    setIsOcrSheetOpen(false)
     ocrAbortRef.current?.abort()
     const controller = new AbortController()
     ocrAbortRef.current = controller
@@ -176,7 +177,6 @@ export default function WriteReviewPage() {
       }
     } finally {
       if (!controller.signal.aborted) setIsOcrLoading(false)
-      e.target.value = ''
     }
   }
 
@@ -376,18 +376,15 @@ export default function WriteReviewPage() {
                 />
               </div>
               <div className="mt-2 flex items-center justify-between">
-                <label className="flex cursor-pointer items-center gap-1 text-sm font-semibold text-primary transition-colors hover:text-primary/80">
+                <button
+                  type="button"
+                  onClick={() => setIsOcrSheetOpen(true)}
+                  disabled={isOcrLoading}
+                  className="flex items-center gap-1 text-sm font-semibold text-primary transition-colors hover:text-primary/80 disabled:opacity-50"
+                >
                   <span className="material-symbols-outlined text-[18px]">photo_camera</span>
                   {isOcrLoading ? '인식 중...' : '사진으로 다시 입력'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleOcrCapture}
-                    className="sr-only"
-                    disabled={isOcrLoading}
-                  />
-                </label>
+                </button>
                 <span className="text-xs text-muted-foreground">{quoteText.length}/200</span>
               </div>
             </div>
@@ -406,18 +403,15 @@ export default function WriteReviewPage() {
               인용구 추가
             </button>
             {!isQuoteEditorOpen && (
-              <label className="flex cursor-pointer items-center gap-2 text-base font-bold text-primary transition-colors hover:text-primary/80">
+              <button
+                type="button"
+                onClick={() => setIsOcrSheetOpen(true)}
+                disabled={isOcrLoading}
+                className="flex items-center gap-2 text-base font-bold text-primary transition-colors hover:text-primary/80 disabled:opacity-50"
+              >
                 <span className="material-symbols-outlined text-[20px]">photo_camera</span>
                 {isOcrLoading ? '인식 중...' : '사진으로 입력'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleOcrCapture}
-                  className="hidden"
-                  disabled={isOcrLoading}
-                />
-              </label>
+              </button>
             )}
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted-foreground select-none">
@@ -466,6 +460,13 @@ export default function WriteReviewPage() {
       </main>
 
       <BottomNav />
+
+      <OcrInputMethodSheet
+        isOpen={isOcrSheetOpen}
+        onClose={() => setIsOcrSheetOpen(false)}
+        onFileSelected={handleOcrCapture}
+        isLoading={isOcrLoading}
+      />
 
       {ocrResult && (
         <OcrTextSelector
