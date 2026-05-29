@@ -15,6 +15,34 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  base: '/',
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        // 무거운 의존성을 별도 vendor 청크로 분리해 초기 로드/캐시 효율을 높인다.
+        // (vitest/config 타입이 객체 형태 manualChunks를 함수형으로 좁혀 잡으므로 함수형으로 작성한다.)
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('@zxing')) return 'scanner-vendor'
+          if (id.includes('@tanstack')) return 'query-vendor'
+          if (id.includes('react-hook-form') || id.includes('@hookform') || id.includes('/zod/'))
+            return 'form-vendor'
+          if (id.includes('@radix-ui') || id.includes('lucide-react')) return 'ui-vendor'
+          if (
+            id.includes('react-router') ||
+            id.includes('react-dom') ||
+            id.includes('/react/') ||
+            id.includes('scheduler')
+          )
+            return 'react-vendor'
+          return undefined
+        },
+      },
+    },
+  },
   test: {
     projects: [
       {

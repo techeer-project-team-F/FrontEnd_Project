@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Outlet } from 'react-router-dom'
 import HomeFeedPage from '@/pages/HomeFeedPage'
 import LoginPage from '@/pages/LoginPage'
 import SignupPage from '@/pages/SignupPage'
@@ -26,8 +26,9 @@ import LibraryBookDetailPage from '@/pages/LibraryBookDetailPage'
 import UserLibraryPage from '@/pages/UserLibraryPage'
 import FollowListPage from '@/pages/FollowListPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
+import RouteError from '@/components/common/RouteError'
 
-export const router = createBrowserRouter([
+const appRoutes = [
   {
     path: '/',
     element: (
@@ -235,5 +236,13 @@ export const router = createBrowserRouter([
         <WithdrawPage />
       </ProtectedRoute>
     ),
+  },
+]
+
+export const router = createBrowserRouter([
+  {
+    element: <Outlet />,
+    errorElement: <RouteError />,
+    children: appRoutes,
   },
 ])

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Shelfeed">
+  <rect width="32" height="32" rx="7" fill="#b58f5e" />
+  <path
+    d="M16 9c-2.2-1.2-4.7-1.6-7-1.2-.6.1-1 .6-1 1.2v11.4c0 .7.6 1.2 1.3 1.1 2-.3 4.1 0 6 .9.4.2.9.2 1.4 0 1.9-.9 4-1.2 6-.9.7.1 1.3-.4 1.3-1.1V9c0-.6-.4-1.1-1-1.2-2.3-.4-4.8 0-7 1.2Z"
+    fill="#ffffff"
+  />
+  <path d="M16 9v13" stroke="#b58f5e" stroke-width="1.2" stroke-linecap="round" />
+</svg>

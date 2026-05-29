@@ -2,7 +2,21 @@ import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/store/authStore'
 import type { ApiResponse } from './_helpers'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+/**
+ * API 베이스 URL.
+ *
+ * 프로덕션 빌드(import.meta.env.PROD)에서는 VITE_API_BASE_URL이 반드시 주입되어야 한다
+ * (Vercel 프로젝트 대시보드의 Environment Variables). 미설정 시 localhost로 무음 fallback하면
+ * 운영 번들이 사용자 머신의 localhost:8080을 호출해 전 API가 조용히 실패하므로, 프로덕션에서는
+ * fail-fast로 즉시 원인을 드러낸다. localhost 기본값은 개발 환경(DEV) 전용이다.
+ */
+const envBaseURL = import.meta.env.VITE_API_BASE_URL
+if (!envBaseURL && import.meta.env.PROD) {
+  throw new Error(
+    'VITE_API_BASE_URL이 설정되지 않았습니다. 배포 환경(Vercel)의 환경변수를 확인하세요.'
+  )
+}
+const baseURL = envBaseURL || 'http://localhost:8080'
 
 const apiClient = axios.create({
   baseURL,
