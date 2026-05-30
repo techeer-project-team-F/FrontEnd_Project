@@ -497,9 +497,9 @@ export default function MyProfilePage() {
           ) : (
             <div className="space-y-4">
               {visibleReviews.map(review => (
-                <article
+                <Link
                   key={review.reviewId}
-                  onClick={() => navigate(`/review/${review.reviewId}`)}
+                  to={`/review/${review.reviewId}`}
                   className="flex cursor-pointer gap-4 rounded-[24px] bg-card p-4 shadow-sm transition-colors hover:bg-primary/5"
                 >
                   <div className="flex h-[96px] w-[76px] shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-primary/5">
@@ -542,7 +542,7 @@ export default function MyProfilePage() {
                       </span>
                     </div>
                   </div>
-                </article>
+                </Link>
               ))}
             </div>
           )}

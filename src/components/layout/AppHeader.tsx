@@ -27,10 +27,14 @@ export default function AppHeader({
       <div className="flex w-10 items-center">
         {showBack && (
           <button
+            type="button"
             onClick={() => navigate(-1)}
+            aria-label="이전 페이지로 돌아가기"
             className="flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
           >
-            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="material-symbols-outlined" aria-hidden="true">
+              arrow_back
+            </span>
           </button>
         )}
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { likeReview, unlikeReview } from '@/api/review'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
@@ -42,7 +42,6 @@ const statusLabel: Record<string, { text: string; variant: 'solid' | 'outline' }
 }
 
 export default function ReviewCard({ review, className }: ReviewCardProps) {
-  const navigate = useNavigate()
   const currentUserId = useAuthStore(state => state.user?.id)
   const isMyReview = currentUserId != null && review.author.id === currentUserId
 
@@ -95,168 +94,160 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
     className
   )
 
-  const inner = (
-    <div className="p-4">
-      {/* User Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <Link
-          to={`/user/${review.author.id}`}
-          onClick={e => e.stopPropagation()}
-          className="flex items-center gap-3"
-        >
-          <div className="size-10 overflow-hidden rounded-full border border-primary/10 bg-primary/10">
-            {review.author.profileImageUrl && (
-              <img
-                src={review.author.profileImageUrl}
-                alt={review.author.nickname}
-                className="size-full object-cover"
-              />
-            )}
-          </div>
-          <div>
-            <p className="text-sm font-bold">{review.author.nickname}</p>
-            <p className="text-xs text-muted-foreground">{formatRelativeTime(review.createdAt)}</p>
-          </div>
-        </Link>
-        <div className="flex items-center gap-2">
-          {status && (
-            <span
-              className={cn(
-                'rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider',
-                status.variant === 'solid'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-primary/10 text-primary'
-              )}
-            >
-              {status.text}
-            </span>
-          )}
-          {!isMyReview && (
-            <button
-              type="button"
-              onClick={e => {
-                e.preventDefault()
-                e.stopPropagation()
-                setIsReportOpen(true)
-              }}
-              aria-label="신고"
-              className="flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-            >
-              <span className="material-symbols-outlined text-[18px]">more_vert</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Book Info */}
-      <div className="mb-4 flex gap-4">
-        <div className="h-28 w-20 shrink-0 overflow-hidden rounded-md bg-primary/5 shadow-md">
-          {review.book.coverImageUrl ? (
-            <img
-              src={review.book.coverImageUrl}
-              alt={review.book.title}
-              className="size-full object-cover"
-            />
-          ) : (
-            // 빈 src는 브라우저가 현재 페이지를 재요청하므로 placeholder로 분기
-            <div
-              aria-hidden="true"
-              className="flex size-full items-center justify-center text-xs text-muted-foreground/60"
-            >
-              <span className="material-symbols-outlined text-2xl">menu_book</span>
-            </div>
-          )}
-        </div>
-        <div className="flex flex-col justify-center">
-          <h3 className="text-lg font-bold leading-tight text-primary">{review.book.title}</h3>
-          <p className="mb-2 text-sm">{review.book.author}</p>
-          {review.rating && <StarRating rating={review.rating} size="md" />}
-        </div>
-      </div>
-
-      {/* Review Text */}
-      {review.hasSpoiler && !spoilerRevealed ? (
-        <button
-          onClick={e => {
-            e.preventDefault()
-            setSpoilerRevealed(true)
-          }}
-          className="group relative mb-4 w-full cursor-pointer"
-        >
-          <div className="pointer-events-none select-none opacity-40 blur-md">
-            <p className="text-sm leading-relaxed">{review.content}</p>
-          </div>
-          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-lg border border-primary/10 bg-primary/5 transition-colors group-hover:bg-primary/10">
-            <span className="material-symbols-outlined mb-1 text-primary">visibility_off</span>
-            <p className="text-[13px] font-bold text-primary">스포일러 포함 — 탭하여 보기</p>
-          </div>
-        </button>
-      ) : (
-        <div className="mb-4">
-          <p className="text-sm leading-relaxed">
-            {review.content}
-            {!review.hasSpoiler && (
-              <span className="ml-1 cursor-pointer font-medium text-primary">더보기</span>
-            )}
-          </p>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-6 border-t border-primary/5 pt-2">
-        {!isMyReview ? (
-          <button
-            onClick={e => {
-              e.preventDefault()
-              e.stopPropagation()
-              toggleLike()
-            }}
-            disabled={isLiking}
-            aria-label={liked ? '좋아요 취소' : '좋아요'}
-            className={cn(
-              'flex items-center gap-1.5 transition-colors disabled:opacity-60',
-              liked ? 'text-primary' : 'hover:text-primary'
-            )}
-          >
-            <span className={cn('material-symbols-outlined text-xl', liked && 'fill-icon')}>
-              favorite
-            </span>
-            <span className="text-xs font-bold">{likeCount}</span>
-          </button>
-        ) : likeCount > 0 ? (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="material-symbols-outlined text-xl">favorite</span>
-            <span className="text-xs font-bold">{likeCount}</span>
-          </div>
-        ) : null}
-        <button
-          onClick={e => {
-            e.preventDefault()
-            e.stopPropagation()
-            navigate(`/review/${review.id}#comments`)
-          }}
-          className="flex items-center gap-1.5 transition-colors hover:text-primary"
-        >
-          <span className="material-symbols-outlined text-xl">chat_bubble</span>
-          <span className="text-xs font-bold">{review.commentCount ?? 0}</span>
-        </button>
-      </div>
-    </div>
-  )
-
   return (
     <>
-      <div
-        role="link"
-        tabIndex={0}
-        onClick={() => navigate(`/review/${review.id}`)}
-        onKeyDown={e => {
-          if (e.key === 'Enter' && e.currentTarget === e.target) navigate(`/review/${review.id}`)
-        }}
-        className={cn(cardClassName, 'cursor-pointer')}
-      >
-        {inner}
-      </div>
+      {/*
+        접근성(M-6): 카드 루트를 인터랙티브(role="link")로 두면 내부 Link/button이 중첩되어
+        nested-interactive 위반이 된다. 루트는 비인터랙티브 컨테이너로 두고, "본문(책 정보 +
+        공개된 감상 내용)"만 단일 <Link>로 감싸 이동 영역으로 삼는다. 작성자 링크·신고·좋아요·
+        댓글·스포일러 공개는 Link 밖 형제로 분리해 중첩을 제거한다.
+      */}
+      <article className={cardClassName}>
+        <div className="p-4">
+          {/* User Header (이동 영역 아님) */}
+          <div className="mb-4 flex items-center justify-between">
+            <Link to={`/user/${review.author.id}`} className="flex items-center gap-3">
+              <div className="size-10 overflow-hidden rounded-full border border-primary/10 bg-primary/10">
+                {review.author.profileImageUrl && (
+                  <img
+                    src={review.author.profileImageUrl}
+                    alt={review.author.nickname}
+                    className="size-full object-cover"
+                  />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-bold">{review.author.nickname}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatRelativeTime(review.createdAt)}
+                </p>
+              </div>
+            </Link>
+            <div className="flex items-center gap-2">
+              {status && (
+                <span
+                  className={cn(
+                    'rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider',
+                    status.variant === 'solid'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-primary/10 text-primary'
+                  )}
+                >
+                  {status.text}
+                </span>
+              )}
+              {!isMyReview && (
+                <button
+                  type="button"
+                  onClick={() => setIsReportOpen(true)}
+                  aria-label="신고"
+                  className="flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                >
+                  <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 이동 영역: 책 정보 + 공개된 감상 내용. 링크 내부 텍스트가 길어 SR 접근명은 aria-label로 간결화 */}
+          <Link
+            to={`/review/${review.id}`}
+            aria-label={`${review.book.title} 감상 상세 보기`}
+            className="block"
+          >
+            <div className="mb-4 flex gap-4">
+              <div className="h-28 w-20 shrink-0 overflow-hidden rounded-md bg-primary/5 shadow-md">
+                {review.book.coverImageUrl ? (
+                  <img
+                    src={review.book.coverImageUrl}
+                    alt={review.book.title}
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  // 빈 src는 브라우저가 현재 페이지를 재요청하므로 placeholder로 분기
+                  <div
+                    aria-hidden="true"
+                    className="flex size-full items-center justify-center text-xs text-muted-foreground/60"
+                  >
+                    <span className="material-symbols-outlined text-2xl">menu_book</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col justify-center">
+                <h3 className="text-lg font-bold leading-tight text-primary">
+                  {review.book.title}
+                </h3>
+                <p className="mb-2 text-sm">{review.book.author}</p>
+                {review.rating && <StarRating rating={review.rating} size="md" />}
+              </div>
+            </div>
+
+            {/* 감상 내용 (스포일러 비공개 시에는 아래 별도 버튼으로 분리) */}
+            {(!review.hasSpoiler || spoilerRevealed) && (
+              <p className="mb-4 text-sm leading-relaxed">
+                {review.content}
+                {!review.hasSpoiler && (
+                  <span className="ml-1 font-medium text-primary">더보기</span>
+                )}
+              </p>
+            )}
+          </Link>
+
+          {/* 스포일러 가림막 — 이동이 아니라 '공개' 동작이므로 Link 밖 버튼으로 분리 */}
+          {review.hasSpoiler && !spoilerRevealed && (
+            <button
+              type="button"
+              onClick={() => setSpoilerRevealed(true)}
+              aria-label="스포일러 감상 보기"
+              className="group relative mb-4 w-full cursor-pointer"
+            >
+              <div className="pointer-events-none select-none opacity-40 blur-md">
+                <p className="text-sm leading-relaxed">{review.content}</p>
+              </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-lg border border-primary/10 bg-primary/5 transition-colors group-hover:bg-primary/10">
+                <span className="material-symbols-outlined mb-1 text-primary">visibility_off</span>
+                <p className="text-[13px] font-bold text-primary">스포일러 포함 — 탭하여 보기</p>
+              </div>
+            </button>
+          )}
+
+          {/* Actions (이동 영역 아님) */}
+          <div className="flex items-center gap-6 border-t border-primary/5 pt-2">
+            {!isMyReview ? (
+              <button
+                type="button"
+                onClick={() => toggleLike()}
+                disabled={isLiking}
+                aria-label={liked ? '좋아요 취소' : '좋아요'}
+                className={cn(
+                  'flex items-center gap-1.5 transition-colors disabled:opacity-60',
+                  liked ? 'text-primary' : 'hover:text-primary'
+                )}
+              >
+                <span className={cn('material-symbols-outlined text-xl', liked && 'fill-icon')}>
+                  favorite
+                </span>
+                <span className="text-xs font-bold">{likeCount}</span>
+              </button>
+            ) : likeCount > 0 ? (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="material-symbols-outlined text-xl">favorite</span>
+                <span className="text-xs font-bold">{likeCount}</span>
+              </div>
+            ) : null}
+            <Link
+              to={`/review/${review.id}#comments`}
+              aria-label="댓글 보기"
+              className="flex items-center gap-1.5 transition-colors hover:text-primary"
+            >
+              <span className="material-symbols-outlined text-xl" aria-hidden="true">
+                chat_bubble
+              </span>
+              <span className="text-xs font-bold">{review.commentCount ?? 0}</span>
+            </Link>
+          </div>
+        </div>
+      </article>
       <ReportDialog
         open={isReportOpen}
         onOpenChange={setIsReportOpen}
