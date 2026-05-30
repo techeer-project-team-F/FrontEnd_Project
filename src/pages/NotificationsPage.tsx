@@ -138,6 +138,7 @@ export default function NotificationsPage() {
                 setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
               }
             })
+            // read-all 실패는 무시 — 로컬은 미읽음으로 남고, 개별 클릭 시 read PATCH로 자연 복구된다
             .catch(() => {})
         }
       } catch (error) {

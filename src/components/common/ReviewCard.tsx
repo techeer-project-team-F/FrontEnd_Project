@@ -150,8 +150,12 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
             </div>
           </div>
 
-          {/* 이동 영역: 책 정보 + 공개된 감상 내용 */}
-          <Link to={`/review/${review.id}`} className="block">
+          {/* 이동 영역: 책 정보 + 공개된 감상 내용. 링크 내부 텍스트가 길어 SR 접근명은 aria-label로 간결화 */}
+          <Link
+            to={`/review/${review.id}`}
+            aria-label={`${review.book.title} 감상 상세 보기`}
+            className="block"
+          >
             <div className="mb-4 flex gap-4">
               <div className="h-28 w-20 shrink-0 overflow-hidden rounded-md bg-primary/5 shadow-md">
                 {review.book.coverImageUrl ? (

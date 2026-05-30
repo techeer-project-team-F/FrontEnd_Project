@@ -352,7 +352,11 @@ export default function BookReviewsListPage() {
                   <Link>로 감싼다. 스포일러 공개·좋아요는 Link 밖 형제 버튼으로 분리해 인터랙티브
                   중첩과 키보드 접근 불가 문제를 해소한다.
                 */}
-                <Link to={`/review/${review.reviewId}`} className="block">
+                <Link
+                  to={`/review/${review.reviewId}`}
+                  aria-label={`${review.user.nickname}님의 감상 상세 보기`}
+                  className="block"
+                >
                   <div className="mb-4 flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="size-10 overflow-hidden rounded-full bg-primary/10">
