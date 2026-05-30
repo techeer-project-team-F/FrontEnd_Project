@@ -18,6 +18,11 @@ export interface ApiResponse<T> {
  * @remarks 후속 cleanup 이슈에서 다른 api/*.ts 모듈도 본 헬퍼로 점진 마이그레이션 예정.
  */
 export function parseApiResponse<T>(response: ApiResponse<T>, fallback: string): T {
+  // HTTP 200 + status:'ERROR' 조합(백엔드 비즈니스 에러)을 data 체크 전에 먼저 차단한다.
+  // 이 가드 없이는 data가 우연히 채워진 경우 에러가 누수될 수 있다.
+  if (response.status === 'ERROR') {
+    throw new Error(response.message ?? fallback)
+  }
   if (response.data === undefined || response.data === null) {
     throw new Error(response.message ?? fallback)
   }

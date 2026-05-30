@@ -63,6 +63,8 @@ export default function CommentSection({
   const inputRef = useRef<HTMLInputElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const moreControllerRef = useRef<AbortController | null>(null)
+  // 댓글 좋아요 연타(in-flight) 가드 — BookReviewsListPage 패턴과 동일
+  const likingIdsRef = useRef(new Set<number>())
 
   const stateRef = useRef({ hasNext, isLoading, isLoadingMore, nextCursor, loadMoreError })
   stateRef.current = { hasNext, isLoading, isLoadingMore, nextCursor, loadMoreError }
@@ -274,6 +276,10 @@ export default function CommentSection({
     currentlyLiked: boolean,
     currentLikeCount: number
   ) => {
+    // 연타 가드 — 이미 요청이 진행 중인 댓글은 무시
+    if (likingIdsRef.current.has(commentId)) return
+    likingIdsRef.current.add(commentId)
+
     const updateLike = (liked: boolean, count: number) => {
       setComments(prev =>
         prev.map(c => {
@@ -301,6 +307,8 @@ export default function CommentSection({
     } catch {
       // 롤백
       updateLike(currentlyLiked, currentLikeCount)
+    } finally {
+      likingIdsRef.current.delete(commentId)
     }
   }
 

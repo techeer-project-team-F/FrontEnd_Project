@@ -188,10 +188,15 @@ export default function UserProfilePage() {
     setBlockError(null)
     try {
       await blockUser(profile.userId)
-      navigate(-1)
+      // navigate(-1) 대신 명시적 목적지로 이동 — 직접 URL 진입(history 없음) 시
+      // navigate(-1)이 무동작이 되어 버튼이 영구 disabled 상태로 남는 것을 방지
+      navigate('/', { replace: true })
     } catch (error) {
-      setBlockError(error instanceof Error ? error.message : '차단에 실패했습니다.')
-      setIsBlockProcessing(false)
+      if (isMountedRef.current) {
+        setBlockError(error instanceof Error ? error.message : '차단에 실패했습니다.')
+      }
+    } finally {
+      if (isMountedRef.current) setIsBlockProcessing(false)
     }
   }
 

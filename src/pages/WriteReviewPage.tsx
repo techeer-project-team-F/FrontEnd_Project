@@ -166,6 +166,12 @@ export default function WriteReviewPage() {
     try {
       const dataUrl = await readFileAsDataUrl(file)
       const base64 = dataUrl.split(',')[1]
+      // dataUrl이 'data:...;base64,...' 형식이 아니면 base64가 undefined가 되어 빈 값을 전송함
+      if (!base64) {
+        setSubmitErrorMessage('이미지를 읽지 못했습니다. 다시 시도해주세요.')
+        setIsOcrLoading(false)
+        return
+      }
       const rawFormat = file.type.split('/')[1] || 'jpg'
       const format = rawFormat === 'jpeg' ? 'jpg' : rawFormat
       const result = await extractTextFromImage(base64, format, controller.signal)
