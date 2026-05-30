@@ -222,9 +222,11 @@ export default function SignupPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+                    aria-pressed={showPassword}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
                   >
-                    <span className="material-symbols-outlined">
+                    <span className="material-symbols-outlined" aria-hidden="true">
                       {showPassword ? 'visibility_off' : 'visibility'}
                     </span>
                   </button>

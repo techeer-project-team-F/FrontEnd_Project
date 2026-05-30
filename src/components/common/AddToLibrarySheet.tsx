@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ReadingStatus } from '@/api/library'
+import { useModalA11y } from '@/hooks/useModalA11y'
 
 interface AddToLibrarySheetProps {
   isOpen: boolean
@@ -28,11 +29,14 @@ export default function AddToLibrarySheet({
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const navigate = useNavigate()
+  const initialFocusRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     setSelected(defaultStatus ?? 'want_to_read')
     setSaveError(null)
   }, [defaultStatus, isOpen])
+
+  useModalA11y({ isOpen, onClose, isBlocked: isSaving, initialFocusRef })
 
   if (!isOpen) return null
 
@@ -55,7 +59,12 @@ export default function AddToLibrarySheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 mx-auto flex max-w-[430px] flex-col justify-end">
+    <div
+      className="fixed inset-0 z-50 mx-auto flex max-w-[430px] flex-col justify-end"
+      role="dialog"
+      aria-modal="true"
+      aria-label="독서 상태 선택"
+    >
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={handleOverlayClose} />
 
@@ -63,6 +72,7 @@ export default function AddToLibrarySheet({
       <div className="relative flex flex-col items-stretch overflow-hidden rounded-t-xl bg-card shadow-2xl ring-1 ring-black/5">
         {/* Handle */}
         <button
+          ref={initialFocusRef}
           className="flex h-6 w-full items-center justify-center pt-2"
           onClick={handleOverlayClose}
           disabled={isSaving}

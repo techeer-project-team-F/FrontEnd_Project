@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import {
   getBook,
@@ -345,40 +345,51 @@ export default function BookReviewsListPage() {
             return (
               <article
                 key={review.reviewId}
-                onClick={() => navigate(`/review/${review.reviewId}`)}
-                className="cursor-pointer rounded-lg border-l-4 border-primary bg-card p-6 shadow-sm transition-colors hover:bg-primary/5"
+                className="rounded-lg border-l-4 border-primary bg-card p-6 shadow-sm transition-colors hover:bg-primary/5"
               >
-                <div className="mb-4 flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="size-10 overflow-hidden rounded-full bg-primary/10">
-                      {review.user.profileImageUrl ? (
-                        <img
-                          src={review.user.profileImageUrl}
-                          alt={review.user.nickname}
-                          className="size-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex size-full items-center justify-center">
-                          <span className="material-symbols-outlined text-primary/40">person</span>
-                        </div>
-                      )}
+                {/*
+                  접근성(M-7): 카드 전체 onClick 대신 "이동 영역(작성자/평점 + 공개된 감상 내용)"만
+                  <Link>로 감싼다. 스포일러 공개·좋아요는 Link 밖 형제 버튼으로 분리해 인터랙티브
+                  중첩과 키보드 접근 불가 문제를 해소한다.
+                */}
+                <Link to={`/review/${review.reviewId}`} className="block">
+                  <div className="mb-4 flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 overflow-hidden rounded-full bg-primary/10">
+                        {review.user.profileImageUrl ? (
+                          <img
+                            src={review.user.profileImageUrl}
+                            alt={review.user.nickname}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex size-full items-center justify-center">
+                            <span className="material-symbols-outlined text-primary/40">
+                              person
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold">{review.user.nickname}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatRelativeTime(review.createdAt)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold">{review.user.nickname}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatRelativeTime(review.createdAt)}
-                      </p>
-                    </div>
+                    <StarRating rating={review.rating} size="sm" />
                   </div>
-                  <StarRating rating={review.rating} size="sm" />
-                </div>
 
-                {review.isSpoiler && !revealedSpoilers.has(review.reviewId) ? (
+                  {(!review.isSpoiler || revealedSpoilers.has(review.reviewId)) && (
+                    <p className="mb-4 line-clamp-4 leading-relaxed">{review.content}</p>
+                  )}
+                </Link>
+
+                {review.isSpoiler && !revealedSpoilers.has(review.reviewId) && (
                   <button
-                    onClick={e => {
-                      e.stopPropagation()
-                      toggleSpoiler(review.reviewId)
-                    }}
+                    type="button"
+                    onClick={() => toggleSpoiler(review.reviewId)}
+                    aria-label="스포일러 감상 보기"
                     className="group relative w-full cursor-pointer text-left"
                   >
                     <div className="pointer-events-none select-none blur-md">
@@ -393,18 +404,15 @@ export default function BookReviewsListPage() {
                       </p>
                     </div>
                   </button>
-                ) : (
-                  <p className="mb-4 line-clamp-4 leading-relaxed">{review.content}</p>
                 )}
 
                 <div className="mt-4 flex items-center gap-6 text-muted-foreground">
                   {!isMyReview ? (
                     <button
                       type="button"
-                      onClick={e => {
-                        e.stopPropagation()
+                      onClick={() =>
                         handleToggleLike(review.reviewId, review.isLiked, review.likeCount)
-                      }}
+                      }
                       aria-label={review.isLiked ? '좋아요 취소' : '좋아요'}
                       className={cn(
                         'flex items-center gap-1 transition-colors',

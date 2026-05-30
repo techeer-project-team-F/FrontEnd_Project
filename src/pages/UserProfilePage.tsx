@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import AppHeader from '@/components/layout/AppHeader'
 import { getUserProfile, type UserProfile } from '@/api/member'
@@ -432,9 +432,9 @@ export default function UserProfilePage() {
           ) : (
             <div className="space-y-4">
               {reviews.map(review => (
-                <article
+                <Link
                   key={review.reviewId}
-                  onClick={() => navigate(`/review/${review.reviewId}`)}
+                  to={`/review/${review.reviewId}`}
                   className="flex cursor-pointer gap-4 rounded-[24px] bg-card p-4 shadow-sm transition-colors hover:bg-primary/5"
                 >
                   <div className="flex h-[96px] w-[76px] shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-primary/5">
@@ -477,7 +477,7 @@ export default function UserProfilePage() {
                       </span>
                     </div>
                   </div>
-                </article>
+                </Link>
               ))}
             </div>
           )}
