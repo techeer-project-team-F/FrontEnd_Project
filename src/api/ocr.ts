@@ -40,7 +40,11 @@ export async function extractTextFromImage(
     }
     return {
       ...result,
-      fields: result.fields.map((f: OcrTextField) => ({ ...f, vertices: f.vertices ?? [] })),
+      // 각 field가 객체가 아니거나 vertices가 배열이 아닐 수 있으므로 정규화 — null 접근 크래시 방지
+      fields: result.fields.map((f): OcrTextField => {
+        const field = (typeof f === 'object' && f !== null ? f : {}) as OcrTextField
+        return { ...field, vertices: Array.isArray(field.vertices) ? field.vertices : [] }
+      }),
     }
   } catch (error) {
     throw normalizeAxiosError(error, '텍스트 추출에 실패했습니다. 다시 시도해주세요.')

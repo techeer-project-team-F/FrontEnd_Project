@@ -184,19 +184,23 @@ export default function UserProfilePage() {
       )
     )
       return
+    // 차단 대상 캡처 + stale guard. handleToggleFollow와 동일하게, 응답 도착 시점에
+    // 사용자가 다른 프로필로 이동했으면(targetId 불일치) 상태를 갱신하지 않는다.
+    const targetId = profile.userId
+    const isStale = () => !isMountedRef.current || profileIdRef.current !== targetId
     setIsBlockProcessing(true)
     setBlockError(null)
     try {
-      await blockUser(profile.userId)
+      await blockUser(targetId)
       // navigate(-1) 대신 명시적 목적지로 이동 — 직접 URL 진입(history 없음) 시
       // navigate(-1)이 무동작이 되어 버튼이 영구 disabled 상태로 남는 것을 방지
       navigate('/', { replace: true })
     } catch (error) {
-      if (isMountedRef.current) {
+      if (!isStale()) {
         setBlockError(error instanceof Error ? error.message : '차단에 실패했습니다.')
       }
     } finally {
-      if (isMountedRef.current) setIsBlockProcessing(false)
+      if (!isStale()) setIsBlockProcessing(false)
     }
   }
 

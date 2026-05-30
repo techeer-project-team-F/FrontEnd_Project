@@ -38,6 +38,8 @@ Thumbs.db
 
 # Claude Code
 .omc
+# 로컬 전용 권한/설정 (개인 머신마다 다르고 임시 권한이 쌓이므로 버전 관리 제외)
+.claude/settings.local.json
 
 *storybook.log
 storybook-static
