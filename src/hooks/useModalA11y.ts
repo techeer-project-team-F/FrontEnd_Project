@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 
 interface UseModalA11yOptions {
   isOpen: boolean
@@ -23,18 +23,25 @@ export function useModalA11y({
   isBlocked = false,
   initialFocusRef,
 }: UseModalA11yOptions) {
+  // onClose를 ref로 고정해, 호출부가 매 렌더 새 함수를 넘겨도 effect가 teardown/재등록되거나
+  // 초기 포커스를 반복 호출(포커스 탈취)하지 않도록 한다.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   useEffect(() => {
     if (!isOpen) return
     initialFocusRef?.current?.focus()
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isBlocked) onClose()
+      if (e.key === 'Escape' && !isBlocked) onCloseRef.current()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = prevOverflow
     }
-  }, [isOpen, onClose, isBlocked, initialFocusRef])
+  }, [isOpen, isBlocked, initialFocusRef])
 }

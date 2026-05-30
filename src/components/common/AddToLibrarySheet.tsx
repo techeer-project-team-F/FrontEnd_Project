@@ -63,7 +63,7 @@ export default function AddToLibrarySheet({
       className="fixed inset-0 z-50 mx-auto flex max-w-[430px] flex-col justify-end"
       role="dialog"
       aria-modal="true"
-      aria-label="독서 상태 선택"
+      aria-labelledby="add-to-library-title"
     >
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={handleOverlayClose} />
@@ -82,7 +82,10 @@ export default function AddToLibrarySheet({
         </button>
 
         <div className="flex-1">
-          <h1 className="px-6 pb-4 pt-6 text-center text-xl font-bold leading-tight tracking-tight">
+          <h1
+            id="add-to-library-title"
+            className="px-6 pb-4 pt-6 text-center text-xl font-bold leading-tight tracking-tight"
+          >
             독서 상태 선택
           </h1>
 

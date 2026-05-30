@@ -155,10 +155,14 @@ export default function SignupPage() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 pb-2">
         <button
+          type="button"
           onClick={() => (step === 1 ? navigate(-1) : handleBackToStep1())}
+          aria-label="뒤로 가기"
           className="flex size-12 shrink-0 items-center text-primary"
         >
-          <span className="material-symbols-outlined text-[24px]">arrow_back</span>
+          <span className="material-symbols-outlined text-[24px]" aria-hidden="true">
+            arrow_back
+          </span>
         </button>
         <h2 className="flex-1 pr-12 text-center text-lg font-bold leading-tight tracking-tight">
           {step === 1 ? '회원가입' : 'Shelfeed'}
