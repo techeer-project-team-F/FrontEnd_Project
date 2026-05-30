@@ -24,6 +24,25 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // 프로덕션 코드에서 Storybook 전용 mock 데이터 import 방지
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/mocks', '@/mocks/**'],
+              message: 'mock 데이터는 프로덕션 코드에서 import하지 마세요 (Storybook/테스트 전용).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // 스토리·테스트 파일은 mock import 허용
+  {
+    files: ['**/*.stories.tsx', '**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
   eslintConfigPrettier,

@@ -25,7 +25,13 @@ export default function BookListItem({ book, className }: BookListItemProps) {
       className={cn('flex items-start gap-4 border-b border-primary/5 py-5', className)}
     >
       <div className="h-36 w-24 shrink-0 overflow-hidden rounded-lg bg-primary/5 shadow-sm">
-        <img src={book.coverImageUrl} alt={book.title} className="size-full object-cover" />
+        <img
+          src={book.coverImageUrl}
+          alt={book.title}
+          className="size-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <h3 className="line-clamp-2 text-lg font-bold leading-tight text-primary">{book.title}</h3>
@@ -40,7 +46,7 @@ export default function BookListItem({ book, className }: BookListItemProps) {
             <span className="text-sm font-bold text-primary">{book.rating}</span>
             {book.reviewCount != null && (
               <span className="ml-1 text-xs text-muted-foreground">
-                ({book.reviewCount.toLocaleString()} reviews)
+                (리뷰 {book.reviewCount.toLocaleString()})
               </span>
             )}
           </div>
