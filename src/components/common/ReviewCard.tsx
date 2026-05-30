@@ -188,12 +188,13 @@ function ReviewCard({ review, className }: ReviewCardProps) {
 
             {/* 감상 내용 (스포일러 비공개 시에는 아래 별도 버튼으로 분리) */}
             {(!review.hasSpoiler || spoilerRevealed) && (
-              <p className="mb-4 text-sm leading-relaxed">
-                {review.content}
+              <div className="mb-4">
+                {/* 본문은 4줄로 clamp해 카드 높이를 균일화. '더보기'는 clamp에 잘리지 않도록 형제로 분리 */}
+                <p className="text-sm leading-relaxed line-clamp-4">{review.content}</p>
                 {!review.hasSpoiler && (
-                  <span className="ml-1 font-medium text-primary">더보기</span>
+                  <span className="mt-1 inline-block text-sm font-medium text-primary">더보기</span>
                 )}
-              </p>
+              </div>
             )}
           </Link>
 

@@ -489,6 +489,18 @@ export default function WriteReviewPage() {
               progress_activity
             </span>
             <p className="text-lg font-bold text-white">텍스트 인식 중...</p>
+            <button
+              type="button"
+              onClick={() => {
+                // 진행 중인 OCR 요청을 즉시 취소. catch/finally가 aborted면 상태를 안 건드리므로
+                // 여기서 직접 로딩 오버레이를 내린다.
+                ocrAbortRef.current?.abort()
+                setIsOcrLoading(false)
+              }}
+              className="mt-2 rounded-xl border-2 border-white/60 px-6 py-2 text-sm font-bold text-white transition-colors hover:bg-white/10"
+            >
+              취소
+            </button>
           </div>
         </div>
       )}

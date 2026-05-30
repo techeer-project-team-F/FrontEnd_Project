@@ -29,7 +29,8 @@ export async function extractTextFromImage(
     const { data } = await apiClient.post<ApiResponse<OcrExtractResponse>>(
       '/api/v1/ocr/extract-text',
       { imageData, imageFormat },
-      { signal }
+      // 대용량 base64 업로드 + CLOVA OCR 처리는 공용 10초 timeout(client.ts)을 넘길 수 있어 개별 상향.
+      { signal, timeout: 30000 }
     )
     const result = parseApiResponse(data, 'OCR 응답이 올바르지 않습니다.')
     // OcrTextSelector가 result.fields[].vertices로 좌표를 계산하므로,
