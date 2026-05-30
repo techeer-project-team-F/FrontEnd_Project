@@ -132,7 +132,13 @@ export default function NotificationsPage() {
         setNextCursor(response.nextCursor)
         setHasNext(response.hasNext)
         if (response.content.some(n => !n.isRead)) {
-          markAllNotificationsAsRead().catch(() => {})
+          markAllNotificationsAsRead()
+            .then(() => {
+              if (!controller.signal.aborted) {
+                setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+              }
+            })
+            .catch(() => {})
         }
       } catch (error) {
         if (axios.isCancel(error) || controller.signal.aborted) return
