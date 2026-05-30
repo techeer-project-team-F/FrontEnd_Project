@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 interface AppHeaderProps {
@@ -39,25 +39,19 @@ export default function AppHeader({
         )}
       </div>
 
-      <h1
-        {...(isHomeLogo && {
-          role: 'link',
-          tabIndex: 0,
-          onClick: () => navigate('/'),
-          onKeyDown: (e: React.KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              navigate('/')
-            }
-          },
-        })}
-        className={cn(
-          'text-xl font-bold tracking-tight text-primary',
-          !showBack && 'text-2xl',
-          isHomeLogo && 'cursor-pointer transition-opacity hover:opacity-70'
+      {/*
+        로고는 heading이자 홈 이동 링크다. h1에 role="link"를 얹으면 heading/link 시맨틱이
+        충돌하므로, 홈 로고일 때만 h1 안에 네이티브 <Link>를 중첩해 키보드/SR 접근을 확보한다.
+        (헤더엔 다른 인터랙티브가 없어 중첩 문제 없음)
+      */}
+      <h1 className={cn('text-xl font-bold tracking-tight text-primary', !showBack && 'text-2xl')}>
+        {isHomeLogo ? (
+          <Link to="/" className="transition-opacity hover:opacity-70">
+            {title}
+          </Link>
+        ) : (
+          title
         )}
-      >
-        {title}
       </h1>
 
       <div className="flex w-10 items-center justify-end">{rightAction}</div>

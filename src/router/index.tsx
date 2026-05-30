@@ -239,6 +239,8 @@ const appRoutes = [
       </ProtectedRoute>
     ),
   },
+  // 미매칭 경로 catch-all: RouteError의 is404 분기가 404를 처리함
+  { path: '*', element: <RouteError /> },
 ]
 
 export const router = createBrowserRouter([

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { likeReview, unlikeReview } from '@/api/review'
 import { cn, formatRelativeTime } from '@/lib/utils'
@@ -41,7 +41,7 @@ const statusLabel: Record<string, { text: string; variant: 'solid' | 'outline' }
   stopped: { text: '중단', variant: 'outline' },
 }
 
-export default function ReviewCard({ review, className }: ReviewCardProps) {
+function ReviewCard({ review, className }: ReviewCardProps) {
   const currentUserId = useAuthStore(state => state.user?.id)
   const isMyReview = currentUserId != null && review.author.id === currentUserId
 
@@ -113,6 +113,8 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
                     src={review.author.profileImageUrl}
                     alt={review.author.nickname}
                     className="size-full object-cover"
+                    loading="lazy"
+                    decoding="async"
                   />
                 )}
               </div>
@@ -162,6 +164,8 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
                     src={review.book.coverImageUrl}
                     alt={review.book.title}
                     className="size-full object-cover"
+                    loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   // 빈 src는 브라우저가 현재 페이지를 재요청하므로 placeholder로 분기
@@ -257,3 +261,6 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
     </>
   )
 }
+
+// 피드 리스트에서 반복 렌더 시 불필요한 리렌더를 줄이기 위해 memo로 감쌈
+export default memo(ReviewCard)
