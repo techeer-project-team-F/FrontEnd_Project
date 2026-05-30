@@ -95,7 +95,8 @@ export default function MyProfilePage() {
         const [result, tower] = await Promise.all([
           getMyProfile(controller.signal),
           getWisdomTower(controller.signal).catch(err => {
-            if (!axios.isCancel(err)) console.error('Failed to load wisdom tower:', err)
+            if (!axios.isCancel(err) && import.meta.env.DEV)
+              console.error('Failed to load wisdom tower:', err)
             return null
           }),
         ])
