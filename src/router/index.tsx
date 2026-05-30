@@ -1,32 +1,34 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Outlet } from 'react-router-dom'
-import HomeFeedPage from '@/pages/HomeFeedPage'
 import LoginPage from '@/pages/LoginPage'
-import SignupPage from '@/pages/SignupPage'
-import BookSearchPage from '@/pages/BookSearchPage'
-import BookDetailPage from '@/pages/BookDetailPage'
-import WriteReviewPage from '@/pages/WriteReviewPage'
-import ReviewDetailPage from '@/pages/ReviewDetailPage'
-import MyProfilePage from '@/pages/MyProfilePage'
-import SettingsPage from '@/pages/SettingsPage'
-import NotificationsPage from '@/pages/NotificationsPage'
-import MyLibraryPage from '@/pages/MyLibraryPage'
-import BookReviewsListPage from '@/pages/BookReviewsListPage'
-import OnboardingPage from '@/pages/OnboardingPage'
-import AuthCallbackPage from '@/pages/AuthCallbackPage'
-import PasswordResetRequestPage from '@/pages/PasswordResetRequestPage'
-import PasswordResetPage from '@/pages/PasswordResetPage'
-import EmailVerificationPage from '@/pages/EmailVerificationPage'
-import PasswordChangePage from '@/pages/PasswordChangePage'
-import BlockedUsersPage from '@/pages/BlockedUsersPage'
-import WithdrawPage from '@/pages/WithdrawPage'
-import GenreSelectionPage from '@/pages/GenreSelectionPage'
-import EditProfilePage from '@/pages/EditProfilePage'
-import UserProfilePage from '@/pages/UserProfilePage'
-import LibraryBookDetailPage from '@/pages/LibraryBookDetailPage'
-import UserLibraryPage from '@/pages/UserLibraryPage'
-import FollowListPage from '@/pages/FollowListPage'
+const HomeFeedPage = lazy(() => import('@/pages/HomeFeedPage'))
+const SignupPage = lazy(() => import('@/pages/SignupPage'))
+const BookSearchPage = lazy(() => import('@/pages/BookSearchPage'))
+const BookDetailPage = lazy(() => import('@/pages/BookDetailPage'))
+const WriteReviewPage = lazy(() => import('@/pages/WriteReviewPage'))
+const ReviewDetailPage = lazy(() => import('@/pages/ReviewDetailPage'))
+const MyProfilePage = lazy(() => import('@/pages/MyProfilePage'))
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'))
+const MyLibraryPage = lazy(() => import('@/pages/MyLibraryPage'))
+const BookReviewsListPage = lazy(() => import('@/pages/BookReviewsListPage'))
+const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'))
+const AuthCallbackPage = lazy(() => import('@/pages/AuthCallbackPage'))
+const PasswordResetRequestPage = lazy(() => import('@/pages/PasswordResetRequestPage'))
+const PasswordResetPage = lazy(() => import('@/pages/PasswordResetPage'))
+const EmailVerificationPage = lazy(() => import('@/pages/EmailVerificationPage'))
+const PasswordChangePage = lazy(() => import('@/pages/PasswordChangePage'))
+const BlockedUsersPage = lazy(() => import('@/pages/BlockedUsersPage'))
+const WithdrawPage = lazy(() => import('@/pages/WithdrawPage'))
+const GenreSelectionPage = lazy(() => import('@/pages/GenreSelectionPage'))
+const EditProfilePage = lazy(() => import('@/pages/EditProfilePage'))
+const UserProfilePage = lazy(() => import('@/pages/UserProfilePage'))
+const LibraryBookDetailPage = lazy(() => import('@/pages/LibraryBookDetailPage'))
+const UserLibraryPage = lazy(() => import('@/pages/UserLibraryPage'))
+const FollowListPage = lazy(() => import('@/pages/FollowListPage'))
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import RouteError from '@/components/common/RouteError'
+import PageLoader from '@/components/common/PageLoader'
 
 const appRoutes = [
   {
@@ -241,7 +243,11 @@ const appRoutes = [
 
 export const router = createBrowserRouter([
   {
-    element: <Outlet />,
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <Outlet />
+      </Suspense>
+    ),
     errorElement: <RouteError />,
     children: appRoutes,
   },
