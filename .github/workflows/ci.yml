@@ -34,6 +34,8 @@ jobs:
           # 이 CI 빌드는 컴파일/번들 sanity check 용도라 secret 미설정 시 플레이스홀더로 충분하다.
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || 'https://ci-placeholder.invalid' }}
 
-      # TODO(후속): 테스트 PR 게이트 추가. 현재 vitest는 Storybook 브라우저 테스트(Playwright)
-      #            의존성 설치가 선행돼야 하므로, `npx playwright install --with-deps chromium`
-      #            step과 함께 `npm run test`를 도입할 것. (테스트 인프라 정비 이슈에서 처리)
+      # node 단위 테스트 게이트. vitest.config.ts(node 환경)로 고정해 vite.config.ts의
+      # Storybook 브라우저 프로젝트(Playwright)가 딸려오지 않도록 한다 — CI에 Playwright 미설치.
+      # 타입체크는 위 build의 `tsc -b`가 이미 담당한다.
+      - name: Run unit tests
+        run: npx vitest run --config vitest.config.ts
