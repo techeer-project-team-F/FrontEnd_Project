@@ -1,0 +1,5 @@
+# 모든 텍스트 파일을 LF로 통일한다.
+# OS(특히 Windows의 CRLF) 차이로 전체 파일이 modified로 뜨거나 prettier format:check가
+# 깜빡이는 문제를 방지한다. prettier 기본값(endOfLine: "lf")과도 일치한다.
+# 바이너리(png/jpg 등)는 text=auto가 자동 감지해 정규화 대상에서 제외한다.
+* text=auto eol=lf

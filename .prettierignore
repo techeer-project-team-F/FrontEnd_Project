@@ -1,3 +1,6 @@
 dist
 node_modules
 .husky
+
+# 자동 생성 잠금 파일 — npm install 시 재생성되어 prettier 포맷이 깨지므로 format:check 대상에서 제외
+package-lock.json
