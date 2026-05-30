@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -25,7 +25,13 @@ type FormData = z.infer<typeof schema>
 export default function PasswordResetPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const token = searchParams.get('token')
+  // 토큰을 1회만 캡처해 안정화하고, 마운트 직후 URL에서 제거한다.
+  // (성공 여부와 무관하게 즉시 정리해 새로고침/주소 공유 시 ?token= 노출을 막는다)
+  const [token] = useState(() => searchParams.get('token'))
+
+  useEffect(() => {
+    if (token) window.history.replaceState({}, '', '/password-reset')
+  }, [token])
 
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -70,7 +76,6 @@ export default function PasswordResetPage() {
     try {
       await resetPassword(token, data.newPassword)
       setIsSuccess(true)
-      window.history.replaceState({}, '', '/password-reset')
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '비밀번호 변경에 실패했습니다.')
     } finally {

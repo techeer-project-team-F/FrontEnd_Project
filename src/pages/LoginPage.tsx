@@ -36,6 +36,20 @@ export default function LoginPage() {
     setGoogleErrorMessage(null)
     try {
       const { loginUrl } = await getGoogleLoginUrl()
+      // 백엔드 응답 변조/스킴 주입 방어: https 절대 URL만 허용 (javascript:/상대경로/평문 차단)
+      let parsed: URL
+      try {
+        parsed = new URL(loginUrl)
+      } catch {
+        setGoogleErrorMessage('잘못된 로그인 URL을 받았습니다. 잠시 후 다시 시도해주세요.')
+        setIsGoogleLoading(false)
+        return
+      }
+      if (parsed.protocol !== 'https:') {
+        setGoogleErrorMessage('안전하지 않은 로그인 URL입니다.')
+        setIsGoogleLoading(false)
+        return
+      }
       window.location.href = loginUrl
     } catch (error) {
       setGoogleErrorMessage(
