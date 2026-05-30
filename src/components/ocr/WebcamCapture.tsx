@@ -17,6 +17,7 @@ const STATUS_MESSAGES: Record<Exclude<CameraStatus, 'initializing' | 'running'>,
   error: '카메라를 시작하지 못했습니다. 잠시 후 다시 시도해주세요.',
 }
 
+// sessionStorage에 저장 — 공용 PC에서 카메라 deviceId가 영구 잔존하지 않도록 탭 세션으로 한정.
 const DEVICE_ID_KEY = 'shelfeed-ocr-device-id'
 
 interface WebcamCaptureProps {
@@ -84,7 +85,7 @@ export default function WebcamCapture({ onCapture, onClose }: WebcamCaptureProps
             deviceId != null
           ) {
             try {
-              localStorage.removeItem(DEVICE_ID_KEY)
+              sessionStorage.removeItem(DEVICE_ID_KEY)
             } catch {
               /* private mode */
             }
@@ -117,7 +118,7 @@ export default function WebcamCapture({ onCapture, onClose }: WebcamCaptureProps
         setActiveDeviceId(usingId)
         if (usingId) {
           try {
-            localStorage.setItem(DEVICE_ID_KEY, usingId)
+            sessionStorage.setItem(DEVICE_ID_KEY, usingId)
           } catch {
             /* private mode */
           }
@@ -167,7 +168,7 @@ export default function WebcamCapture({ onCapture, onClose }: WebcamCaptureProps
   useEffect(() => {
     let saved: string | null = null
     try {
-      saved = localStorage.getItem(DEVICE_ID_KEY)
+      saved = sessionStorage.getItem(DEVICE_ID_KEY)
     } catch {
       saved = null
     }

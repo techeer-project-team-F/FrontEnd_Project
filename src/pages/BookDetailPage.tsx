@@ -12,7 +12,12 @@ import {
   type BookReviewItem,
   type BackendReadingStatus,
 } from '@/api/book'
-import { addLibraryBook, updateLibraryBookStatus, type ReadingStatus } from '@/api/library'
+import {
+  addLibraryBook,
+  updateLibraryBookStatus,
+  backendToFrontStatus,
+  type ReadingStatus,
+} from '@/api/library'
 import { formatRelativeTime } from '@/lib/utils'
 
 const statusEmoji: Record<ReadingStatus, string> = {
@@ -22,22 +27,12 @@ const statusEmoji: Record<ReadingStatus, string> = {
   stopped: '⏸️ 중단',
 }
 
-// TODO(후속): backendToFrontStatus 맵이 @/api/library 에도 동일하게 export되어 있어 중복. 후속 리팩터 이슈에서 통합 예정.
-const backendToFrontStatus: Record<BackendReadingStatus, ReadingStatus> = {
-  WANT_TO_READ: 'want_to_read',
-  READING: 'reading',
-  FINISHED: 'finished',
-  STOPPED: 'stopped',
-}
-
 // toFrontStatus 유지 이유: getBook 응답의 myLibraryStatus는 string | null 타입(백엔드 Nullable)으로 내려오므로
-// 방어적 null 변환이 필요하다. addLibraryBook 응답은 BackendReadingStatus로 타입 보장되지만, 여기서는
-// 동일한 변환기를 재사용하여 호출부 단순화를 유지한다. 백엔드 enum이 확장되면 exhaustive map으로 이행 고려.
+// 방어적 null 변환이 필요하다. 매핑 자체는 @/api/library의 backendToFrontStatus(단일 출처, Partial)를 재사용한다.
+// Partial이라 미지의 enum 값은 undefined가 되므로 ?? null로 흡수한다.
 function toFrontStatus(s: string | null): ReadingStatus | null {
-  if (s && s in backendToFrontStatus) {
-    return backendToFrontStatus[s as BackendReadingStatus]
-  }
-  return null
+  if (!s) return null
+  return backendToFrontStatus[s as BackendReadingStatus] ?? null
 }
 
 export default function BookDetailPage() {

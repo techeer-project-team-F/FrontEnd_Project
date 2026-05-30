@@ -36,7 +36,30 @@ export default function LoginPage() {
     setGoogleErrorMessage(null)
     try {
       const { loginUrl } = await getGoogleLoginUrl()
-      window.location.href = loginUrl
+      // 오픈 리다이렉트 방어: https 스킴만 검사하면 https://evil.example 같은 임의 origin도
+      // 통과하므로, 신뢰 origin allowlist에 든 URL만 이동한다.
+      let parsed: URL
+      try {
+        parsed = new URL(loginUrl)
+      } catch {
+        setGoogleErrorMessage('잘못된 로그인 URL을 받았습니다. 잠시 후 다시 시도해주세요.')
+        setIsGoogleLoading(false)
+        return
+      }
+      // 구글 OAuth 시작 도메인 + (백엔드가 자체 시작 엔드포인트를 줄 수 있으므로) API origin만 허용
+      const allowedOrigins = new Set<string>(['https://accounts.google.com'])
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL
+        if (apiBase) allowedOrigins.add(new URL(apiBase).origin)
+      } catch {
+        /* VITE_API_BASE_URL 미설정/형식 오류 — accounts.google.com만 허용 */
+      }
+      if (!allowedOrigins.has(parsed.origin)) {
+        setGoogleErrorMessage('안전하지 않은 로그인 URL입니다.')
+        setIsGoogleLoading(false)
+        return
+      }
+      window.location.href = parsed.toString()
     } catch (error) {
       setGoogleErrorMessage(
         error instanceof Error ? error.message : 'Google 로그인 URL을 받아오지 못했습니다.'
