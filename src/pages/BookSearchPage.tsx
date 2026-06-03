@@ -397,7 +397,12 @@ export default function BookSearchPage() {
 
   // 전체 탭 fetch — books/users 두 섹션 미리보기, 페이징 없음
   useEffect(() => {
-    if (restoredFromCache.current) return
+    // [#210] 도서/유저 탭과 달리 restoredFromCache 가드를 두지 않는다.
+    // 전체 탭은 페이지네이션·스크롤 위치가 없는 5건 미리보기라 캐시를 보존할 이득이 없고,
+    // 오히려 캐시 복원 후 가드에 막히면 stale 미리보기(예: 이전 검색의 도서 4건)가 그대로
+    // 노출되다가 탭을 왕복해야 갱신되는 버그가 있었다. 캐시값은 useState 초기값으로 즉시
+    // 렌더만 제공하고, effect가 항상 fresh fetch로 덮어쓴다. (도서/유저 탭은 무한스크롤
+    // 위치 보존을 위해 기존 가드 유지.)
     if (!trimmedQuery || activeTab !== 'all') {
       if (!trimmedQuery) {
         setAllBooks([])
@@ -451,7 +456,8 @@ export default function BookSearchPage() {
   }, [trimmedQuery, activeTab])
 
   // 반드시 restoredFromCache를 참조하는 모든 effect 뒤에 선언할 것.
-  // React는 useEffect를 선언 순서대로 실행하므로 위 4개 effect가 먼저 skip된 후 플래그 해제.
+  // React는 useEffect를 선언 순서대로 실행하므로 위 effect들(URL→state·도서·유저 탭)이
+  // 먼저 skip된 후 플래그가 해제된다. 전체 탭 effect는 #210 수정으로 이 가드를 쓰지 않는다.
   useEffect(() => {
     restoredFromCache.current = false
   }, [])
