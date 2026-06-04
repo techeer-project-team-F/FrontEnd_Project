@@ -56,6 +56,21 @@ describe('createBarcodeDecoder', () => {
     expect(decodeFromCanvasMock).toHaveBeenCalledWith(FAKE_CANVAS)
   })
 
+  it('getSupportedFormats가 reject(throw)하면 zxing 폴백을 사용한다', async () => {
+    class FakeDetector {
+      static getSupportedFormats = vi.fn().mockRejectedValue(new Error('boom'))
+      detect = vi.fn()
+    }
+    vi.stubGlobal('window', { BarcodeDetector: FakeDetector })
+    decodeFromCanvasMock.mockReturnValue({ getText: () => '9788956609959' })
+
+    const decoder = await createBarcodeDecoder()
+    const result = await decoder.decode(FAKE_CANVAS)
+
+    expect(result).toBe('9788956609959')
+    expect(decodeFromCanvasMock).toHaveBeenCalledWith(FAKE_CANVAS)
+  })
+
   it('BarcodeDetector 자체가 없으면 zxing 폴백을 사용한다', async () => {
     vi.stubGlobal('window', {}) // BarcodeDetector 부재 (iOS Safari 등)
     decodeFromCanvasMock.mockReturnValue({ getText: () => '9791169213021' })
