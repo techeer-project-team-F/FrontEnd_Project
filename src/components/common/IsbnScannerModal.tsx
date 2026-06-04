@@ -248,6 +248,21 @@ export default function IsbnScannerModal({
         // 실제 사용 중인 deviceId 추출 → state/localStorage 동기화
         const trackSettings = stream.getVideoTracks()[0]?.getSettings()
         const usingId = trackSettings?.deviceId ?? null
+
+        // 저장된 deviceId가 전면 카메라면(구버전에서 선택돼 localStorage에 남은 경우 등) 후면으로 폴백.
+        // 전면은 드롭다운(후면만 노출)에 없어 사용자가 되돌릴 수 없으므로, 잘못된 저장값을 지우고
+        // facingMode: environment로 재요청한다. deviceId != null 조건이라 재귀는 1회로 끝난다.
+        if (deviceId != null && trackSettings?.facingMode === 'user') {
+          try {
+            localStorage.removeItem(DEVICE_ID_KEY)
+          } catch {
+            // private 모드 등 — 무시
+          }
+          stream.getTracks().forEach(t => t.stop())
+          streamRef.current = null
+          return startStream(null)
+        }
+
         setActiveDeviceId(usingId)
         if (usingId) {
           try {
