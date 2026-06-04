@@ -21,7 +21,9 @@ const FAKE_CANVAS = {} as HTMLCanvasElement
 
 afterEach(() => {
   vi.unstubAllGlobals()
-  vi.clearAllMocks()
+  // resetAllMocks: 호출 기록뿐 아니라 mock 구현까지 초기화한다. clearAllMocks는 기록만
+  // 지워, 한 테스트의 decodeFromCanvasMock 구현(throw/return)이 다음 테스트로 새는 결합을 만든다.
+  vi.resetAllMocks()
 })
 
 describe('createBarcodeDecoder', () => {
