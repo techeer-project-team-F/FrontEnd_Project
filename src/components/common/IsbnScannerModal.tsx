@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { createBarcodeDecoder } from '@/lib/barcodeDecoder'
+import { buildCameraOptions } from '@/lib/cameraOptions'
 
 const DEVICE_ID_KEY = 'shelfeed-scan-device-id'
 const SCAN_INTERVAL = 120
@@ -418,9 +419,9 @@ export default function IsbnScannerModal({
       ? STATUS_MESSAGES[status]
       : null
 
-  // 빈 deviceId(권한 부여 직후 일부 브라우저)는 select key/value 충돌 방지 위해 제외
-  const selectableDevices = devices.filter(d => d.deviceId)
-  const showDeviceSelect = selectableDevices.length >= 2 && status === 'running'
+  // 바코드 스캔엔 후면 카메라만 의미 → 전면 제외 + 라벨 정리(빈 deviceId 제거 포함).
+  const deviceOptions = buildCameraOptions(devices)
+  const showDeviceSelect = deviceOptions.length >= 2 && status === 'running'
 
   const currentTip = tipIndex >= 0 ? SCAN_TIPS[tipIndex] : null
 
@@ -465,9 +466,9 @@ export default function IsbnScannerModal({
               onChange={handleDeviceChange}
               className="max-w-[40vw] truncate rounded-md bg-white/10 px-2 py-1 text-xs text-white outline-none"
             >
-              {selectableDevices.map((d, idx) => (
-                <option key={d.deviceId} value={d.deviceId} className="text-black">
-                  {d.label || `카메라 ${idx + 1}`}
+              {deviceOptions.map(o => (
+                <option key={o.id} value={o.id} className="text-black">
+                  {o.label}
                 </option>
               ))}
             </select>
