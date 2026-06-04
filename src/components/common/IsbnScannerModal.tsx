@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { createBarcodeDecoder } from '@/lib/barcodeDecoder'
+
 const DEVICE_ID_KEY = 'shelfeed-scan-device-id'
-const SCAN_INTERVAL = 200
+const SCAN_INTERVAL = 120
+// ROI를 디코딩 전 이 폭으로 축소한다. EAN-13(95모듈)엔 640px면 충분(≈6.7px/모듈)하고,
+// 디코딩 대상 픽셀 수를 줄여 모바일 인식 속도를 크게 높인다.
+const MAX_ROI_WIDTH = 640
 
 type ScannerStatus =
   | 'initializing'
@@ -156,9 +161,9 @@ export default function IsbnScannerModal({
     const track = streamRef.current?.getVideoTracks()[0]
     if (!track) return
     try {
-      const { BrowserCodeReader } = await import('@zxing/browser')
       const next = !torchOnRef.current
-      await BrowserCodeReader.mediaStreamSetTorch(track, next)
+      // 네이티브 트랙 제약으로 토치 제어 — zxing 의존 없이 동작(미지원 시 catch로 무시)
+      await track.applyConstraints({ advanced: [{ torch: next }] })
       torchOnRef.current = next
       setTorchOn(next)
     } catch {
@@ -185,15 +190,15 @@ export default function IsbnScannerModal({
           video: deviceId
             ? {
                 deviceId: { exact: deviceId },
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
                 // @ts-expect-error focusMode는 TS 타입 미반영, ideal이므로 미지원 시 무시됨
                 focusMode: { ideal: 'continuous' },
               }
             : {
                 facingMode: { ideal: 'environment' },
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
                 focusMode: { ideal: 'continuous' },
               },
         }
@@ -251,24 +256,18 @@ export default function IsbnScannerModal({
           }
         }
 
-        // ZXing lazy import로 메인 번들 영향 최소화
-        const [{ BrowserMultiFormatReader, BrowserCodeReader }, { BarcodeFormat, DecodeHintType }] =
-          await Promise.all([import('@zxing/browser'), import('@zxing/library')])
-        if (isStale()) return
-
-        // 토치 지원 감지
+        // 토치 지원 감지 (네이티브 트랙 capability — zxing 의존 제거)
         try {
-          setTorchAvailable(BrowserCodeReader.mediaStreamIsTorchCompatible(stream))
+          const caps = stream.getVideoTracks()[0]?.getCapabilities?.()
+          setTorchAvailable(!!caps?.torch)
         } catch {
           setTorchAvailable(false)
         }
 
-        // EAN-13만 타겟 (디폴트로 모든 포맷 시도하면 ISBN 바코드 인식이 느리고 자주 실패).
-        // TRY_HARDER: 정확도 우선, 처리 시간 약간 증가 (실시간 스캔에는 충분)
-        const hints = new Map<number, unknown>()
-        hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13])
-        hints.set(DecodeHintType.TRY_HARDER, true)
-        const reader = new BrowserMultiFormatReader(hints)
+        // 네이티브 BarcodeDetector(안드로이드 등) 우선, 미지원 시 zxing 폴백.
+        // zxing은 폴백 경로에서만 동적 import되어 네이티브 환경의 번들 비용을 없앤다.
+        const decoder = await createBarcodeDecoder()
+        if (isStale()) return
 
         // 가이드 박스 영역만 크롭할 offscreen canvas
         const canvas = document.createElement('canvas')
@@ -284,45 +283,41 @@ export default function IsbnScannerModal({
         if (isStale()) return
 
         /**
-         * ROI 크롭 수동 디코딩 루프.
+         * ROI 크롭 + 다운스케일 수동 디코딩 루프.
          *
-         * 기존 `decodeFromVideoElement`는 전체 비디오 프레임을 디코딩하여
-         * 바코드 주변 노이즈(텍스트·이미지)가 인식률을 떨어뜨렸다.
-         * 가이드 박스 영역만 canvas에 크롭 후 `decodeFromCanvas`에 전달하여
-         * 디코딩 대상을 좁힌다.
+         * 가이드 박스 영역만 canvas에 크롭하되 MAX_ROI_WIDTH로 축소해 디코딩 대상
+         * 픽셀 수를 줄인다(모바일 인식 속도의 핵심). 전체 프레임을 디코딩하면 주변
+         * 노이즈로 인식률이 떨어지고, 원본 해상도 그대로면 모바일 CPU에서 느리다.
+         * decode는 비동기(네이티브 detect)일 수 있어 await 직후 stale/detected를
+         * 재확인해 모달 닫힘 시 타이머 누수를 막는다.
          */
-        let lastCanvasW = 0
-        let lastCanvasH = 0
-        const scanLoop = () => {
+        const scanLoop = async () => {
           if (isStale() || detectedRef.current) return
           try {
             const { sx, sy, sw, sh } = computeROI(video)
             if (sw > 0 && sh > 0) {
-              if (sw !== lastCanvasW || sh !== lastCanvasH) {
-                canvas.width = sw
-                canvas.height = sh
-                lastCanvasW = sw
-                lastCanvasH = sh
+              const targetW = Math.min(sw, MAX_ROI_WIDTH)
+              const targetH = Math.max(1, Math.round(sh * (targetW / sw)))
+              if (canvas.width !== targetW || canvas.height !== targetH) {
+                canvas.width = targetW
+                canvas.height = targetH
               } else {
-                ctx.clearRect(0, 0, sw, sh)
+                ctx.clearRect(0, 0, targetW, targetH)
               }
-              ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
-              try {
-                const result = reader.decodeFromCanvas(canvas)
-                if (result) {
-                  handleDetected(result.getText())
-                  return
-                }
-              } catch {
-                // NotFoundException / ChecksumException / FormatException — 다음 프레임 재시도
+              ctx.drawImage(video, sx, sy, sw, sh, 0, 0, targetW, targetH)
+              const text = await decoder.decode(canvas)
+              if (isStale() || detectedRef.current) return
+              if (text) {
+                handleDetected(text)
+                return
               }
             }
           } catch {
-            // video not ready 등 — 다음 프레임 재시도
+            // video not ready / decode 내부 예외 — 다음 프레임 재시도
           }
-          scanTimerRef.current = window.setTimeout(scanLoop, SCAN_INTERVAL)
+          scanTimerRef.current = window.setTimeout(() => void scanLoop(), SCAN_INTERVAL)
         }
-        scanTimerRef.current = window.setTimeout(scanLoop, SCAN_INTERVAL)
+        scanTimerRef.current = window.setTimeout(() => void scanLoop(), SCAN_INTERVAL)
 
         setStatus('running')
       } catch (error) {
