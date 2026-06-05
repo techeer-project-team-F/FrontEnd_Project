@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+
+import { isMobile } from '@/lib/device'
+
 import WebcamCapture from './WebcamCapture'
 
 interface OcrInputMethodSheetProps {
@@ -6,14 +9,6 @@ interface OcrInputMethodSheetProps {
   onClose: () => void
   onFileSelected: (file: File) => void
   isLoading: boolean
-}
-
-function isMobile(): boolean {
-  if (typeof navigator === 'undefined') return false
-  return (
-    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-    (navigator.maxTouchPoints > 0 && /Macintosh/i.test(navigator.userAgent))
-  )
 }
 
 /**
