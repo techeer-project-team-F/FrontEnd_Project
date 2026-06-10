@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react'
-import { createBrowserRouter, Outlet } from 'react-router-dom'
+import { lazy } from 'react'
+import { createBrowserRouter } from 'react-router-dom'
 import LoginPage from '@/pages/LoginPage'
 const HomeFeedPage = lazy(() => import('@/pages/HomeFeedPage'))
 const SignupPage = lazy(() => import('@/pages/SignupPage'))
@@ -28,7 +28,7 @@ const UserLibraryPage = lazy(() => import('@/pages/UserLibraryPage'))
 const FollowListPage = lazy(() => import('@/pages/FollowListPage'))
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import RouteError from '@/components/common/RouteError'
-import PageLoader from '@/components/common/PageLoader'
+import RootLayout from '@/components/layout/RootLayout'
 
 const appRoutes = [
   {
@@ -245,11 +245,7 @@ const appRoutes = [
 
 export const router = createBrowserRouter([
   {
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <Outlet />
-      </Suspense>
-    ),
+    element: <RootLayout />,
     errorElement: <RouteError />,
     children: appRoutes,
   },

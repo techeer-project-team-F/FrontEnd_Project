@@ -55,8 +55,8 @@
   }
   /* PWA pull-to-refresh 비활성화: 오버스크롤 차단은 스크롤 체인 최상위인 html에
      적용돼야 당겨서 새로고침이 막힌다(안드로이드 크롬/PWA). contain은 페이지 내부
-     스크롤은 유지하면서 브라우저 새로고침으로의 전파만 차단. (iOS 사파리는 이 속성
-     미지원이라 막히지 않음 — 별도 구조 변경 필요해 이번 범위 제외) */
+     스크롤은 유지하면서 브라우저 새로고침으로의 전파만 차단. (iOS 사파리는 이 속성을
+     미지원이라, JS로 touchmove를 가로채는 usePreventPullToRefresh 훅에서 별도 처리한다) */
   html {
     overscroll-behavior-y: contain;
   }
