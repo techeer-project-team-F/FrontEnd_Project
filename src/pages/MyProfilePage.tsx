@@ -105,10 +105,12 @@ export default function MyProfilePage() {
         if (tower) setWisdomTower(tower)
 
         const state = useAuthStore.getState()
-        if (state.user && state.accessToken) {
+        // user가 비어 있어도(부팅 직후 충전 전) accessToken만 있으면 동기화한다.
+        // 메모리 보관 전환 후 user=null 상태로 진입할 수 있어 조건을 accessToken 기준으로 완화.
+        if (state.accessToken) {
           state.setAuth(
             {
-              ...state.user,
+              ...(state.user ?? {}),
               id: result.userId,
               nickname: result.nickname,
               email: result.email,
