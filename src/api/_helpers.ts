@@ -3,6 +3,9 @@ import axios from 'axios'
 export interface ApiResponse<T> {
   status: 'SUCCESS' | 'ERROR'
   code: number
+  // 백엔드 도메인 에러코드(예: 'M001'). 비즈니스 예외 응답에만 포함된다(성공/일반 에러엔 없음).
+  // 메시지 문구가 아닌 이 코드로 에러를 분기하기 위해 사용.
+  errorCode?: string
   message?: string
   data?: T
   errors?: Array<{ field: string; message: string }>
