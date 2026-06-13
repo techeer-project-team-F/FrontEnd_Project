@@ -4,6 +4,9 @@ import type { BackendReadingStatus } from './book'
 
 export interface CreateReviewRequest {
   bookId: number
+  // 서재에서 감상을 쓸 때만 채워지는 "내 서재 책" 식별자. 백엔드가 소유자 검증 후
+  // 감상을 해당 서재책과 연결한다(optional — 책 상세/검색 등 서재 밖 진입 시 미전송).
+  libraryBookId?: number
   content: string
   rating: number
   quote?: string

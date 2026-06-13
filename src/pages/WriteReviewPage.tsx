@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { getBook, type BookDetail } from '@/api/book'
 import { createReview, getReviewDetail, updateReview } from '@/api/review'
@@ -27,8 +27,11 @@ type ReviewFormBook = Pick<BookDetail, 'bookId' | 'title' | 'author' | 'coverIma
 export default function WriteReviewPage() {
   const { bookId, reviewId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const currentUserId = useAuthStore(state => state.user?.id)
   const isEditMode = reviewId != null
+  // 서재 상세에서 감상 쓰기로 진입한 경우에만 전달되는 서재책 ID (그 외 경로는 undefined)
+  const libraryBookId = (location.state as { libraryBookId?: number } | null)?.libraryBookId
 
   const [book, setBook] = useState<ReviewFormBook | null>(null)
   const [rating, setRating] = useState(5)
@@ -237,6 +240,8 @@ export default function WriteReviewPage() {
         bookId: parseInt(bookId!, 10),
         ...basePayload,
         ...(trimmedQuote ? { quote: trimmedQuote } : {}),
+        // 서재 상세에서 진입한 경우에만 서재책과 연결 (그 외엔 미전송)
+        ...(libraryBookId != null ? { libraryBookId } : {}),
       })
       navigate(`/review/${result.reviewId}`, { replace: true })
     } catch (error) {

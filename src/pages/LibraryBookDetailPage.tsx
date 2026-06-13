@@ -325,7 +325,13 @@ export default function LibraryBookDetailPage() {
               <p className="text-sm text-muted-foreground">아직 감상이 없어요</p>
               <button
                 type="button"
-                onClick={() => navigate(`/review/write/${detail.book.bookId}`)}
+                onClick={() =>
+                  navigate(`/review/write/${detail.book.bookId}`, {
+                    // 서재 책 컨텍스트에서 감상을 쓰므로 libraryBookId를 함께 전달 →
+                    // 백엔드가 감상을 이 서재책과 연결(소유자 검증 포함).
+                    state: { libraryBookId: detail.libraryBookId },
+                  })
+                }
                 className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm transition-transform active:scale-[0.98]"
               >
                 감상 쓰기
