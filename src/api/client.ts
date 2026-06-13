@@ -243,15 +243,18 @@ async function handleApiClientResponseError(error: AxiosError) {
     try {
       const newToken = await getRefreshPromise()
       const stateAfter = useAuthStore.getState()
-      // refresh 도중 사용자가 logout했거나 다른 계정으로 전환된 경우 → 새 토큰을
-      // store에 주입하지 않고 원본 에러를 그대로 reject (토큰/사용자 불일치 방지)
-      if (!stateAfter.isAuthenticated || !stateAfter.user) {
+      // refresh 도중 사용자가 logout한 경우 → 새 토큰을 주입하지 않고 원본 에러 reject.
+      // isAuthenticated 단독으로 판정한다(clearAuth가 false로 flip). user=null은 부팅 직후
+      // 충전 전 정상 상태이므로 로그아웃 신호로 쓰지 않는다.
+      if (!stateAfter.isAuthenticated) {
         return Promise.reject(error)
       }
-      if (userBefore && stateAfter.user.id !== userBefore.id) {
+      // refresh 도중 다른 계정으로 전환된 경우 → 재시도 안 함(양쪽 user가 있을 때만 id 비교)
+      if (userBefore && stateAfter.user && stateAfter.user.id !== userBefore.id) {
         return Promise.reject(error)
       }
-      useAuthStore.getState().setAuth(stateAfter.user, newToken)
+      // user는 그대로 두고 토큰만 교체(요청 인터셉터가 최신 토큰을 자동 부착)
+      useAuthStore.getState().setAccessToken(newToken)
       return apiClient(originalRequest)
     } catch (refreshError) {
       // 인증 문제(400/401)일 때만 logout. 일시적 네트워크/timeout/5xx에선 세션 유지
@@ -268,12 +271,13 @@ async function handleApiClientResponseError(error: AxiosError) {
 apiClient.interceptors.response.use(response => response, handleApiClientResponseError)
 
 export default apiClient
-// 단위 테스트 전용 export (프로덕션 코드에서 직접 사용 금지)
+// 부팅 silent refresh(useAuthBootstrap) 및 단위 테스트에서 재사용하는 내부 유틸 export
 export {
   refreshClient,
   performRefresh,
   getRefreshPromise,
   isAuthFlowUrl,
   isMemberNotFound,
+  isAuthFailureRefreshError,
   handleApiClientResponseError,
 }

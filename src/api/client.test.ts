@@ -24,12 +24,19 @@ const clearAuthMock = vi.fn(() => {
   authState.accessToken = null
   authState.isAuthenticated = false
 })
+// setAuth와 달리 user는 건드리지 않고 토큰만 교체(부팅 refresh·401 자동 refresh 공용).
+// isAuthenticated도 true로 보장하므로 mock도 동일하게 미러링.
+const setAccessTokenMock = vi.fn((accessToken: string) => {
+  authState.accessToken = accessToken
+  authState.isAuthenticated = true
+})
 
 vi.mock('@/store/authStore', () => ({
   useAuthStore: {
     getState: () => ({
       ...authState,
       setAuth: setAuthMock,
+      setAccessToken: setAccessTokenMock,
       clearAuth: clearAuthMock,
     }),
   },
@@ -49,6 +56,7 @@ beforeEach(() => {
   authState.accessToken = 'old-access-token'
   authState.isAuthenticated = true
   setAuthMock.mockClear()
+  setAccessTokenMock.mockClear()
   clearAuthMock.mockClear()
 })
 afterEach(() => {
@@ -249,7 +257,7 @@ describe('apiClient response interceptor — 401 분기', () => {
     } as unknown as AxiosError
   }
 
-  it('401 + 일반 path + 미시도 + 로그인 상태 → refresh 1회 호출 + 새 토큰으로 setAuth', async () => {
+  it('401 + 일반 path + 미시도 + 로그인 상태 → refresh 1회 호출 + 새 토큰으로 setAccessToken', async () => {
     const client = await import('./client')
     const handler = await getErrorHandler()
 
@@ -263,14 +271,37 @@ describe('apiClient response interceptor — 401 분기', () => {
 
     const error = makeAxiosError('/api/v1/users/me', 401)
     // 재시도(apiClient(originalRequest))는 실제 axios가 노드 환경에서 네트워크 요청을 시도해
-    // 실패할 수 있으므로 결과는 신경쓰지 않고 setAuth 호출 여부만 검증한다.
+    // 실패할 수 있으므로 결과는 신경쓰지 않고 setAccessToken 호출 여부만 검증한다.
     // axios 1.x의 bound instance는 spy로 가로채기 어려워 retry 자체는 통합테스트로 검증.
     await handler(error).catch(() => undefined)
 
-    expect(setAuthMock).toHaveBeenCalledOnce()
-    expect(setAuthMock.mock.calls[0]?.[1]).toBe('fresh-token')
+    expect(setAccessTokenMock).toHaveBeenCalledOnce()
+    expect(setAccessTokenMock.mock.calls[0]?.[0]).toBe('fresh-token')
     expect(clearAuthMock).not.toHaveBeenCalled()
     expect(locationStub.href).toBe('')
+  })
+
+  it('refresh 성공 + user=null(부팅 충전 전) → setAccessToken 호출, reject 안 함 (접근 C 회귀)', async () => {
+    // 토큰만 복구된 부팅 직후 상태: isAuthenticated=true인데 user는 아직 비어 있음.
+    // 구 코드의 `!stateAfter.user` 가드였다면 토큰 주입을 거부했을 회귀를 잡는다.
+    authState.user = null
+    const client = await import('./client')
+    const handler = await getErrorHandler()
+
+    vi.spyOn(client.refreshClient, 'post').mockResolvedValueOnce({
+      data: {
+        status: 'SUCCESS',
+        code: 200,
+        data: { accessToken: 'fresh-token', accessTokenExpiresIn: 3600 },
+      },
+    } as never)
+
+    const error = makeAxiosError('/api/v1/users/me', 401)
+    await handler(error).catch(() => undefined)
+
+    expect(setAccessTokenMock).toHaveBeenCalledOnce()
+    expect(setAccessTokenMock.mock.calls[0]?.[0]).toBe('fresh-token')
+    expect(clearAuthMock).not.toHaveBeenCalled()
   })
 
   it('401 + 인증 흐름 path → refresh 시도 안 함, 그대로 reject', async () => {
@@ -371,7 +402,7 @@ describe('apiClient response interceptor — 401 분기', () => {
     expect(locationStub.href).toBe('')
   })
 
-  it('refresh 도중 logout 발생 시 setAuth 미호출, 원본 에러 reject (H1 fix)', async () => {
+  it('refresh 도중 logout 발생 시 setAccessToken 미호출, 원본 에러 reject (H1 fix)', async () => {
     const client = await import('./client')
     const handler = await getErrorHandler()
 
@@ -399,10 +430,10 @@ describe('apiClient response interceptor — 401 분기', () => {
 
     resolveInner!('would-be-stale-token')
     await expect(handlerPromise).rejects.toBe(error)
-    expect(setAuthMock).not.toHaveBeenCalled()
+    expect(setAccessTokenMock).not.toHaveBeenCalled()
   })
 
-  it('refresh 도중 다른 계정으로 전환 시 setAuth 미호출 (H1 fix)', async () => {
+  it('refresh 도중 다른 계정으로 전환 시 setAccessToken 미호출 (H1 fix)', async () => {
     const client = await import('./client')
     const handler = await getErrorHandler()
 
@@ -429,7 +460,7 @@ describe('apiClient response interceptor — 401 분기', () => {
 
     resolveInner!('cross-account-token')
     await expect(handlerPromise).rejects.toBe(error)
-    expect(setAuthMock).not.toHaveBeenCalled()
+    expect(setAccessTokenMock).not.toHaveBeenCalled()
   })
 })
 
