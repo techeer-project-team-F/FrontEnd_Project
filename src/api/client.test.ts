@@ -506,6 +506,33 @@ describe('isMemberNotFound', () => {
     expect(isMemberNotFound(new Error('test'))).toBe(false)
     expect(isMemberNotFound(null)).toBe(false)
   })
+
+  it('errorCode "M001" → true (메시지 문구와 무관)', async () => {
+    const { isMemberNotFound } = await import('./client')
+    const error = {
+      isAxiosError: true,
+      response: { status: 404, data: { errorCode: 'M001', message: '문구가 바뀌어도 무관' } },
+    }
+    expect(isMemberNotFound(error)).toBe(true)
+  })
+
+  it('errorCode "M001" + 메시지 없음 → true (코드 기반 판별)', async () => {
+    const { isMemberNotFound } = await import('./client')
+    const error = {
+      isAxiosError: true,
+      response: { status: 404, data: { errorCode: 'M001' } },
+    }
+    expect(isMemberNotFound(error)).toBe(true)
+  })
+
+  it('다른 errorCode("B001") + 회원 아닌 메시지 → false', async () => {
+    const { isMemberNotFound } = await import('./client')
+    const error = {
+      isAxiosError: true,
+      response: { status: 404, data: { errorCode: 'B001', message: '존재하지 않는 도서입니다.' } },
+    }
+    expect(isMemberNotFound(error)).toBe(false)
+  })
 })
 
 describe('MEMBER_NOT_FOUND 인터셉터 — stale 세션 감지', () => {

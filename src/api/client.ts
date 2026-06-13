@@ -134,12 +134,13 @@ apiClient.interceptors.request.use(config => {
 })
 
 /**
- * 백엔드 MEMBER_NOT_FOUND 응답 메시지.
+ * 백엔드 MEMBER_NOT_FOUND 식별자.
  *
- * `ErrorCode.MEMBER_NOT_FOUND(404, "M001", "존재하지 않는 회원입니다.")`이지만
- * `GlobalExceptionHandler.handleBusinessException`이 message만 응답 body에 포함하므로
- * 에러 코드("M001")가 아닌 메시지 문자열로 판별한다.
+ * `ErrorCode.MEMBER_NOT_FOUND(404, "M001", "존재하지 않는 회원입니다.")`.
+ * 백엔드가 응답 body에 `errorCode`("M001")를 내려주므로 이 코드로 판별한다.
+ * 단, errorCode가 없던 구버전 응답(배포 이전)과의 하위호환을 위해 메시지 문자열 폴백도 유지한다.
  */
+const MEMBER_NOT_FOUND_CODE = 'M001'
 const MEMBER_NOT_FOUND_MESSAGE = '존재하지 않는 회원입니다.'
 
 /**
@@ -168,15 +169,19 @@ function isAuthFlowUrl(url: string): boolean {
 }
 
 /**
- * 응답이 MEMBER_NOT_FOUND(HTTP 404 + 특정 message)인지 판별.
+ * 응답이 MEMBER_NOT_FOUND인지 판별.
  *
  * DB 초기화·회원 삭제 등으로 JWT의 사용자가 DB에 없을 때 백엔드의 거의 모든
  * 인증 필요 API가 이 응답을 반환한다. 401(토큰 만료)과 달리 토큰 자체는 유효하므로
  * 별도 감지가 필요하다.
+ *
+ * 도메인 errorCode('M001')로 판별하는 것을 우선하고, errorCode가 없는 구버전 응답에 대해서는
+ * 기존 메시지 문자열(HTTP 404 + 특정 message)로 폴백한다.
  */
 function isMemberNotFound(error: unknown): boolean {
   if (!axios.isAxiosError(error)) return false
-  const data = error.response?.data as { message?: string } | undefined
+  const data = error.response?.data as { errorCode?: string; message?: string } | undefined
+  if (data?.errorCode === MEMBER_NOT_FOUND_CODE) return true
   return error.response?.status === 404 && data?.message === MEMBER_NOT_FOUND_MESSAGE
 }
 
