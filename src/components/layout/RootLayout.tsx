@@ -33,7 +33,13 @@ export default function RootLayout() {
     userFetchRef.current = true
     getMyProfile()
       .then(profile => {
-        useAuthStore.getState().setUser({
+        // 요청 중 로그아웃/계정전환이 일어났으면 stale 응답으로 현재 세션을 덮어쓰지 않는다.
+        // isAuthenticated=false면 로그아웃됨, state.user가 이미 있으면 다른 경로(재로그인 등)가
+        // 충전한 것이므로 건드리지 않는다. (토큰 비교는 부팅 중 401→refresh 토큰 교체를 같은
+        // 사용자인데도 stale로 오판하므로 쓰지 않는다.)
+        const state = useAuthStore.getState()
+        if (!state.isAuthenticated || state.user) return
+        state.setUser({
           id: profile.userId,
           nickname: profile.nickname,
           email: profile.email,
